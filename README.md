@@ -1,5 +1,7 @@
 # macbook-setup
 
+![macbook-setup logo](assets/logo.png)
+
 Automate the full bootstrap of a development workstation with a single Ansible playbook. The repository provisions macOS, Linux, and Windows hosts with the same core toolchain, copies opinionated configuration files (VS Code settings, oh-my-posh prompt), and installs all daily-driver apps with the native package managers for each platform.
 
 ## Goals
