@@ -1,0 +1,9 @@
+---
+- name: Ensure workspace directories exist
+  ansible.builtin.import_tasks: directories.yml
+
+- name: Configure VS Code user profile
+  ansible.builtin.import_tasks: vscode.yml
+
+- name: Configure shell experience
+  ansible.builtin.import_tasks: shell.yml

@@ -1,0 +1,82 @@
+---
+- name: Determine VS Code settings path for POSIX hosts
+  ansible.builtin.set_fact:
+    vscode_user_dir_posix: >-
+      {% if ansible_facts['os_family'] == 'Darwin' %}
+      {{ ansible_env.HOME }}/Library/Application Support/Code/User
+      {% else %}
+      {{ ansible_env.HOME }}/.config/Code/User
+      {% endif %}
+  when: ansible_facts['os_family'] != 'Windows'
+
+- name: Determine VS Code settings path for Windows hosts
+  ansible.builtin.set_fact:
+    vscode_user_dir_windows: "{{ ansible_env.APPDATA }}\\Code\\User"
+  when: ansible_facts['os_family'] == 'Windows'
+
+- block:
+    - name: Ensure VS Code user directory exists (POSIX)
+      ansible.builtin.file:
+        path: "{{ vscode_user_dir_posix }}"
+        state: directory
+        mode: '0755'
+
+    - name: Deploy VS Code settings (POSIX)
+      ansible.builtin.copy:
+        src: vscode/settings.json
+        dest: "{{ vscode_user_dir_posix }}/settings.json"
+        mode: '0644'
+
+    - name: Detect VS Code CLI availability (POSIX)
+      ansible.builtin.command: "code --version"
+      register: vscode_cli_check_posix
+      failed_when: false
+      changed_when: false
+
+    - name: Install VS Code extensions (POSIX)
+      ansible.builtin.command: "code --install-extension {{ item }} --force"
+      loop: "{{ vscode_extensions }}"
+      changed_when: "'already installed' not in (stdout | default('') | lower)"
+      failed_when: "rc not in [0]"
+      when: vscode_cli_check_posix.rc == 0
+      loop_control:
+        label: "{{ item }}"
+
+    - name: Warn when VS Code CLI is unavailable (POSIX)
+      ansible.builtin.debug:
+        msg: "VS Code CLI not found on PATH; skipped extension installs. Launch VS Code and enable 'code' command via the Command Palette."
+      when: vscode_cli_check_posix.rc != 0
+  when: ansible_facts['os_family'] != 'Windows'
+
+- block:
+    - name: Ensure VS Code user directory exists (Windows)
+      ansible.windows.win_file:
+        path: "{{ vscode_user_dir_windows }}"
+        state: directory
+
+    - name: Deploy VS Code settings (Windows)
+      ansible.windows.win_copy:
+        src: vscode/settings.json
+        dest: "{{ vscode_user_dir_windows }}\\settings.json"
+
+    - name: Detect VS Code CLI availability (Windows)
+      ansible.windows.win_command: "code --version"
+      register: vscode_cli_check_windows
+      failed_when: false
+      changed_when: false
+
+    - name: Install VS Code extensions (Windows)
+      ansible.windows.win_command: "code --install-extension {{ vscode_extension }} --force"
+      loop: "{{ vscode_extensions }}"
+      changed_when: "'already installed' not in (stdout | default('') | lower)"
+      failed_when: false
+      when: vscode_cli_check_windows.rc == 0
+      loop_control:
+        loop_var: vscode_extension
+        label: "{{ vscode_extension }}"
+
+    - name: Warn when VS Code CLI is unavailable (Windows)
+      ansible.builtin.debug:
+        msg: "VS Code CLI not found on PATH; open VS Code and enable 'code' command via Command Palette."
+      when: vscode_cli_check_windows.rc != 0
+  when: ansible_facts['os_family'] == 'Windows'

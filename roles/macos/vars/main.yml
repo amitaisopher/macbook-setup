@@ -1,0 +1,36 @@
+---
+homebrew_taps:
+  - homebrew/cask
+  - homebrew/cask-fonts
+  - oven-sh/bun
+
+homebrew_packages:
+  - git
+  - awscli
+  - aws-cdk
+  - uv
+  - nvm
+  - oven-sh/bun/bun
+  - docker
+  - lazydocker
+  - btop
+  - oh-my-posh
+
+homebrew_casks:
+  - visual-studio-code
+  - cursor
+  - windsurf
+  - zen-browser
+  - google-chrome
+  - firefox
+  - bitwarden
+  - whatsapp
+  - discord
+  - slack
+  - docker
+  - claude
+  - google-antigravity
+
+nerd_fonts:
+  - font-martian-mono-nerd-font
+  - font-droid-sans-mono-nerd-font

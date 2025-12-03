@@ -1,0 +1,52 @@
+---
+- name: Ensure Chocolatey is installed
+  ansible.windows.win_shell: |
+    Set-ExecutionPolicy Bypass -Scope Process -Force
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
+    if (-not (Test-Path "$env:ProgramData\chocolatey\bin\choco.exe")) {
+      Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+    }
+  args:
+    creates: C:\\ProgramData\\chocolatey\\bin\\choco.exe
+
+- name: Install core Chocolatey packages
+  chocolatey.chocolatey.win_chocolatey:
+    name: "{{ item }}"
+    state: present
+    ignore_checksums: true
+  loop: "{{ choco_strict_packages }}"
+
+- name: Install best-effort Chocolatey packages
+  chocolatey.chocolatey.win_chocolatey:
+    name: "{{ item }}"
+    state: present
+    ignore_checksums: true
+  loop: "{{ choco_best_effort_packages }}"
+  ignore_errors: true
+  register: choco_optional
+
+- name: Warn about missing Chocolatey packages
+  ansible.builtin.debug:
+    msg: "Packages not available in Chocolatey: {{ (choco_optional.results | selectattr('failed', 'defined') | selectattr('failed')) | map(attribute='item') | list }}"
+  when: choco_optional is defined and (choco_optional.results | selectattr('failed', 'defined') | selectattr('failed') | list)
+
+- name: Download Nerd Font archives
+  ansible.windows.win_get_url:
+    url: "https://github.com/ryanoasis/nerd-fonts/releases/download/{{ nerd_fonts_release }}/{{ item.archive }}"
+    dest: "{{ ansible_env.TEMP }}\\{{ item.archive }}"
+  loop: "{{ nerd_fonts_to_install }}"
+
+- name: Extract Nerd Font archives
+  community.windows.win_unzip:
+    src: "{{ ansible_env.TEMP }}\\{{ item.archive }}"
+    dest: "{{ ansible_env.TEMP }}\\fonts-{{ item.name }}"
+    overwrite: true
+  loop: "{{ nerd_fonts_to_install }}"
+
+- name: Install Nerd Fonts into Windows Fonts directory
+  ansible.windows.win_shell: |
+    $source = "{{ ansible_env.TEMP }}\\fonts-{{ item.name }}"
+    Get-ChildItem -Path $source -Filter *.ttf -Recurse | ForEach-Object {
+      Copy-Item $_.FullName -Destination "$env:WINDIR\\Fonts" -Force
+    }
+  loop: "{{ nerd_fonts_to_install }}"

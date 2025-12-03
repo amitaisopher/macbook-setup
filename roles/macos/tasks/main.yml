@@ -1,0 +1,54 @@
+---
+- name: Check if Homebrew exists in common locations
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  register: homebrew_stat
+  loop:
+    - /opt/homebrew/bin/brew
+    - /usr/local/bin/brew
+
+- name: Record Homebrew installation state
+  ansible.builtin.set_fact:
+    brew_is_installed: "{{ homebrew_stat.results | selectattr('stat.exists') | list | length > 0 }}"
+
+- name: Install Homebrew when missing
+  ansible.builtin.shell: |
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  args:
+    creates: /opt/homebrew/bin/brew
+  when: not brew_is_installed
+
+- name: Ensure requested taps are present
+  community.general.homebrew_tap:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ homebrew_taps }}"
+
+- name: Install Homebrew formulas
+  community.general.homebrew:
+    name: "{{ item }}"
+    state: present
+    update_homebrew: true
+  loop: "{{ homebrew_packages }}"
+
+- name: Install Homebrew casks (best effort)
+  community.general.homebrew_cask:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ homebrew_casks }}"
+  register: cask_install
+  failed_when: false
+  ignore_errors: true
+  loop_control:
+    label: "{{ item }}"
+
+- name: Warn about failed cask installs
+  ansible.builtin.debug:
+    msg: "Some casks failed to install: {{ (cask_install.results | selectattr('failed', 'defined') | selectattr('failed')) | map(attribute='item') | list }}"
+  when: cask_install is defined and (cask_install.results | selectattr('failed', 'defined') | selectattr('failed') | list)
+
+- name: Install Nerd Fonts
+  community.general.homebrew_cask:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ nerd_fonts }}"

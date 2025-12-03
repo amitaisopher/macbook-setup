@@ -1,0 +1,80 @@
+---
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  become: true
+
+- name: Install base apt packages
+  ansible.builtin.apt:
+    name: "{{ apt_packages }}"
+    state: present
+  become: true
+
+- name: Enable Docker service
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: true
+  become: true
+
+- name: Add current user to docker group
+  ansible.builtin.user:
+    name: "{{ ansible_user_id }}"
+    groups: docker
+    append: true
+  become: true
+
+- name: Install lazydocker via snap
+  community.general.snap:
+    name: lazydocker
+    classic: true
+    state: present
+  become: true
+
+- name: Ensure Flathub remote exists
+  community.general.flatpak_remote:
+    name: flathub
+    state: present
+    url: https://dl.flathub.org/repo/flathub.flatpakrepo
+  become: true
+
+- name: Install desktop apps via Flatpak (best effort)
+  community.general.flatpak:
+    name:
+      - com.visualstudio.code
+      - com.slack.Slack
+      - org.mozilla.firefox
+      - com.discordapp.Discord
+      - com.google.Chrome
+      - com.bitwarden.desktop
+    state: present
+  ignore_errors: true
+  become: true
+
+- name: Install uv package manager
+  ansible.builtin.shell: |
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+  args:
+    creates: "{{ ansible_env.HOME }}/.local/bin/uv"
+  environment:
+    UV_NO_MODIFY_PATH: "1"
+
+- name: Install nvm
+  ansible.builtin.shell: |
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+  args:
+    creates: "{{ ansible_env.HOME }}/.nvm/nvm.sh"
+
+- name: Install bun runtime
+  ansible.builtin.shell: |
+    curl -fsSL https://bun.sh/install | bash
+  args:
+    creates: "{{ ansible_env.HOME }}/.bun/bin/bun"
+
+- name: Install oh-my-posh
+  ansible.builtin.shell: |
+    curl -s https://ohmyposh.dev/install.sh | bash -s -- -d /usr/local/bin
+  args:
+    creates: /usr/local/bin/oh-my-posh
+  become: true

@@ -1,0 +1,129 @@
+- name: Define oh-my-posh config paths
+  ansible.builtin.set_fact:
+    posh_config_dir: >-
+      {% if ansible_facts['os_family'] == 'Windows' %}
+      {{ ansible_env.USERPROFILE }}\\.config\\oh-my-posh
+      {% else %}
+      {{ ansible_env.HOME }}/.config/oh-my-posh
+      {% endif %}
+    posh_theme_file: >-
+      {% if ansible_facts['os_family'] == 'Windows' %}
+      {{ ansible_env.USERPROFILE }}\\.config\\oh-my-posh\\theme.json
+      {% else %}
+      {{ ansible_env.HOME }}/.config/oh-my-posh/theme.json
+      {% endif %}
+
+- name: Ensure oh-my-posh config directory exists on POSIX hosts
+  ansible.builtin.file:
+    path: "{{ posh_config_dir }}"
+    state: directory
+    mode: '0755'
+  when: ansible_facts['os_family'] != 'Windows'
+
+- name: Ensure oh-my-posh config directory exists on Windows hosts
+  ansible.windows.win_file:
+    path: "{{ posh_config_dir }}"
+    state: directory
+  when: ansible_facts['os_family'] == 'Windows'
+
+- name: Deploy oh-my-posh theme on POSIX hosts
+  ansible.builtin.copy:
+    src: oh-my-posh/theme.json
+    dest: "{{ posh_theme_file }}"
+    mode: '0644'
+  when: ansible_facts['os_family'] != 'Windows'
+
+- name: Deploy oh-my-posh theme on Windows hosts
+  ansible.windows.win_copy:
+    src: oh-my-posh/theme.json
+    dest: "{{ posh_theme_file }}"
+  when: ansible_facts['os_family'] == 'Windows'
+
+  vars:
+    posh_eval_cmd: "$(oh-my-posh init bash --config {{ posh_theme_file }})"
+  ansible.builtin.blockinfile:
+    path: "{{ ansible_env.HOME }}/.bashrc"
+    create: true
+    marker: "# {mark} ANSIBLE OH-MY-POSH"
+    block: |
+      if command -v oh-my-posh >/dev/null 2>&1; then
+        ---
+        - name: Define oh-my-posh config paths
+          ansible.builtin.set_fact:
+            posh_config_dir: >-
+              {% if ansible_facts['os_family'] == 'Windows' %}
+              {{ ansible_env.USERPROFILE }}\\.config\\oh-my-posh
+              {% else %}
+              {{ ansible_env.HOME }}/.config/oh-my-posh
+              {% endif %}
+            posh_theme_file: >-
+              {% if ansible_facts['os_family'] == 'Windows' %}
+              {{ ansible_env.USERPROFILE }}\\.config\\oh-my-posh\\theme.json
+              {% else %}
+              {{ ansible_env.HOME }}/.config/oh-my-posh/theme.json
+              {% endif %}
+
+        - name: Ensure oh-my-posh config directory exists on POSIX hosts
+          ansible.builtin.file:
+            path: "{{ posh_config_dir }}"
+            state: directory
+            mode: '0755'
+          when: ansible_facts['os_family'] != 'Windows'
+
+        - name: Ensure oh-my-posh config directory exists on Windows hosts
+          ansible.windows.win_file:
+            path: "{{ posh_config_dir }}"
+            state: directory
+          when: ansible_facts['os_family'] == 'Windows'
+
+        - name: Deploy oh-my-posh theme on POSIX hosts
+          ansible.builtin.copy:
+            src: oh-my-posh/theme.json
+            dest: "{{ posh_theme_file }}"
+            mode: '0644'
+          when: ansible_facts['os_family'] != 'Windows'
+
+        - name: Deploy oh-my-posh theme on Windows hosts
+          ansible.windows.win_copy:
+            src: oh-my-posh/theme.json
+            dest: "{{ posh_theme_file }}"
+          when: ansible_facts['os_family'] == 'Windows'
+
+        - name: Configure bash prompt to use oh-my-posh
+          ansible.builtin.blockinfile:
+            path: "{{ ansible_env.HOME }}/.bashrc"
+            create: true
+            marker: "# {mark} ANSIBLE OH-MY-POSH"
+            block: |
+              if command -v oh-my-posh >/dev/null 2>&1; then
+                eval "$(oh-my-posh init bash --config {{ posh_theme_file }})"
+              fi
+          when: ansible_facts['os_family'] != 'Windows'
+
+        - name: Configure zsh prompt to use oh-my-posh
+          ansible.builtin.blockinfile:
+            path: "{{ ansible_env.HOME }}/.zshrc"
+            create: true
+            marker: "# {mark} ANSIBLE OH-MY-POSH"
+            block: |
+              if command -v oh-my-posh >/dev/null 2>&1; then
+                eval "$(oh-my-posh init zsh --config {{ posh_theme_file }})"
+              fi
+          when:
+            - ansible_facts['os_family'] != 'Windows'
+            - ansible_facts.shell is defined
+            - 'zsh' in ansible_facts.shell
+
+        - name: Ensure PowerShell profile directory exists
+          ansible.windows.win_file:
+            path: "{{ ansible_env.USERPROFILE }}\\Documents\\PowerShell"
+            state: directory
+          when: ansible_facts['os_family'] == 'Windows'
+
+        - name: Configure PowerShell prompt to use oh-my-posh
+          ansible.windows.win_lineinfile:
+            path: "{{ ansible_env.USERPROFILE }}\\Documents\\PowerShell\\Microsoft.PowerShell_profile.ps1"
+            create: true
+            line: "oh-my-posh init pwsh --config $env:USERPROFILE/.config/oh-my-posh/theme.json | Invoke-Expression"
+            insertafter: EOF
+          when: ansible_facts['os_family'] == 'Windows'

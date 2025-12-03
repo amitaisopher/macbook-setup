@@ -1,0 +1,19 @@
+---
+- name: Provision developer workstation
+  hosts: local
+  connection: local
+  gather_facts: true
+
+  pre_tasks:
+    - name: Show detected platform
+      ansible.builtin.debug:
+        msg: "Provisioning for {{ ansible_facts['os_family'] }} on {{ ansible_facts['distribution'] | default('unknown') }}"
+
+  roles:
+    - role: macos
+      when: ansible_facts['os_family'] == 'Darwin'
+    - role: linux
+      when: ansible_facts['system'] == 'Linux'
+    - role: windows
+      when: ansible_facts['os_family'] == 'Windows'
+    - role: common

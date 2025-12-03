@@ -1,0 +1,20 @@
+- name: Ensure base development folders exist on POSIX hosts
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ ansible_env.HOME }}/dev"
+    - "{{ ansible_env.HOME }}/dev/projects"
+    - "{{ ansible_env.HOME }}/.config"
+  when: ansible_facts['os_family'] != 'Windows'
+
+- name: Ensure base development folders exist on Windows hosts
+  ansible.windows.win_file:
+    path: "{{ item }}"
+    state: directory
+  loop:
+    - "{{ ansible_env.USERPROFILE }}\\dev"
+    - "{{ ansible_env.USERPROFILE }}\\dev\\projects"
+    - "{{ ansible_env.USERPROFILE }}\\.config"
+  when: ansible_facts['os_family'] == 'Windows'

@@ -1,0 +1,33 @@
+---
+choco_strict_packages:
+  - git
+  - vscode
+  - googlechrome
+  - firefox
+  - bitwarden
+  - whatsapp
+  - discord
+  - slack
+  - docker-desktop
+  - awscli
+  - aws-cdk
+  - nvm
+  - bun
+  - uv
+  - lazydocker
+  - btop
+  - oh-my-posh
+
+choco_best_effort_packages:
+  - cursor
+  - windsurf
+  - zen-browser
+  - claude
+  - google-antigravity
+
+nerd_fonts_release: v3.1.1
+nerd_fonts_to_install:
+  - name: MartianMono
+    archive: MartianMono.zip
+  - name: DroidSansMono
+    archive: DroidSansMono.zip

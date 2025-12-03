@@ -1,0 +1,26 @@
+vscode_extensions:
+  - biomejs.biome
+  - charliermarsh.ruff
+  - esbenp.prettier-vscode
+  - oderwat.indent-rainbow
+  - bradlc.vscode-tailwindcss
+  - prisma.prisma
+  - shd101wyy.markdown-preview-enhanced
+  - dsznajder.es7-react-js-snippets
+  - ms-vscode-remote.remote-containers
+  - ms-vscode.remote-explorer
+  - github.copilot
+  - github.copilot-chat
+  - openai.openai-codex
+  - figma.figma-vscode
+  - amazonwebservices.aws-toolkit-vscode
+  - ms-vscode.powershell
+  - dbaeumer.vscode-eslint
+  - astral-sh.pyright
+  - pkief.material-icon-theme
+  - ms-azuretools.vscode-docker
+  - ms-vscode.remote-server
+  - pyre-check.pyre-check
+  - shyykoserhiy.aws-cdk-tools
+  - ms-toolsai.datawrangler
+  - anthropic.claude-dev

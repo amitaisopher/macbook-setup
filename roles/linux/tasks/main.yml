@@ -1,0 +1,9 @@
+---
+- name: Run apt-specific provisioning
+  ansible.builtin.import_tasks: apt.yml
+  when: ansible_facts['pkg_mgr'] == 'apt'
+
+- name: Notify unsupported package manager
+  ansible.builtin.debug:
+    msg: "Linux role currently supports apt-based distributions. Feel free to add support for {{ ansible_facts['pkg_mgr'] }}."
+  when: ansible_facts['pkg_mgr'] != 'apt'
