@@ -30,6 +30,8 @@ homebrew_casks:
   - docker
   - claude
   - google-antigravity
+  - github
+  - rambox
 
 nerd_fonts:
   - font-martian-mono-nerd-font

@@ -8,6 +8,7 @@ choco_strict_packages:
   - whatsapp
   - discord
   - slack
+  - github-desktop
   - docker-desktop
   - awscli
   - aws-cdk
