@@ -63,3 +63,18 @@
   loop: "{{ chrome_extensions }}"
   loop_control:
     index_var: idx
+
+- name: Schedule weekly software and OS updates (Saturday at 20:00)
+  ansible.windows.win_scheduled_task:
+    name: "WeeklySystemUpdates"
+    description: "Update Chocolatey packages and trigger Windows Update"
+    actions:
+      - path: powershell.exe
+        arguments: "-Command \"choco upgrade all -y; UsoClient.exe StartInstall\""
+    triggers:
+      - type: weekly
+        days_of_week: saturday
+        start_boundary: "2025-01-01T20:00:00"
+    username: SYSTEM
+    run_level: highest
+    state: present

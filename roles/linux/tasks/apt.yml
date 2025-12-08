@@ -94,3 +94,13 @@
         "ExtensionInstallForcelist": {{ chrome_extensions | to_json }}
       }
     mode: '0644'
+
+- name: Schedule weekly system updates (Saturday at 20:00)
+  ansible.builtin.cron:
+    name: "Weekly System Updates"
+    minute: "0"
+    hour: "20"
+    weekday: "6"
+    job: "apt-get update && apt-get upgrade -y && snap refresh && flatpak update -y"
+    user: root
+    become: true

@@ -57,3 +57,22 @@
   ansible.builtin.shell: |
     defaults write com.google.Chrome ExtensionInstallForcelist -array {{ chrome_extensions | map('quote') | join(' ') }}
   changed_when: false
+
+- name: Schedule weekly Homebrew updates (Saturday at 20:00)
+  ansible.builtin.cron:
+    name: "Weekly Homebrew Updates"
+    minute: "0"
+    hour: "20"
+    weekday: "6"
+    job: "/opt/homebrew/bin/brew update && /opt/homebrew/bin/brew upgrade && /opt/homebrew/bin/brew upgrade --cask"
+    user: "{{ ansible_user_id }}"
+
+- name: Schedule weekly MacOS updates (Saturday at 20:00)
+  ansible.builtin.cron:
+    name: "Weekly MacOS Updates"
+    minute: "0"
+    hour: "20"
+    weekday: "6"
+    job: "softwareupdate -ia"
+    user: root
+    become: true

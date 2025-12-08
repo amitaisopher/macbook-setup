@@ -36,7 +36,8 @@ All platforms aim to install the following (method varies by OS):
 - Developer tooling: Git, AWS CLI/CDK, Docker Desktop/CLI, lazydocker, btop, uv, nvm, Bun, oh-my-posh.
 - IDEs & editors: VS Code (with extensions), Cursor, WindSurf.
 - Browsers: Google Chrome, Firefox, Zen Browser.
-- Communication: Slack, WhatsApp, Discord, Bitwarden, Claude Code, Google AntiGravity (placeholder), Google Antigravity is attempted via best-effort cask/Chocolatey install and may require manual handling.
+- Communication: Slack, WhatsApp, Discord, Rambox, Bitwarden, Claude Code, Google AntiGravity (placeholder), Google Antigravity is attempted via best-effort cask/Chocolatey install and may require manual handling.
+- Desktop Apps: Github Desktop.
 - Fonts: `MartianMono Nerd Font Mono` and `Droid Sans Mono`.
 
 Some titles (e.g., Google AntiGravity or bleeding-edge IDEs) do not yet have stable packages in every ecosystem. The roles attempt installation and log any failures so you can patch the package source once official formulas/casks/packages appear.
@@ -44,6 +45,18 @@ Some titles (e.g., Google AntiGravity or bleeding-edge IDEs) do not yet have sta
 ## VS Code Profile
 `roles/common/files/vscode/settings.json` contains opinionated defaults (format-on-save, Nerd Font usage, Ruff/Biome formatters, telemetry opt-out). Extensions installed via CLI include:
 `biomejs.biome`, `charliermarsh.ruff`, `pyre-check.pyre-check` (PyreFly), `oderwat.indent-rainbow`, `prisma.prisma`, `shd101wyy.markdown-preview-enhanced`, `dsznajder.es7-react-js-snippets`, `ms-vscode-remote.remote-containers`, `ms-vscode.remote-explorer`, `ms-vscode.remote-server`, `github.copilot`, `github.copilot-chat`, `openai.openai-codex`, `figma.figma-vscode`, `bradlc.vscode-tailwindcss`, `amazonwebservices.aws-toolkit-vscode`, `ms-vscode.powershell`, `dbaeumer.vscode-eslint`, `astral-sh.pyright`, `ms-azuretools.vscode-docker`, `anthropic.claude-dev`, `shyykoserhiy.aws-cdk-tools`, `ms-toolsai.datawrangler`, `esbenp.prettier-vscode`.
+
+## Chrome Extensions
+The playbook automatically installs and enforces the following Chrome extensions via policy:
+- **Session Buddy**
+- **Bitwarden**
+- **AdBlock**
+
+## Automatic Updates
+The system is configured to run automatic updates every **Saturday at 20:00**:
+- **macOS**: Updates Homebrew packages and runs `softwareupdate -ia` for system updates.
+- **Linux**: Updates `apt`, `snap`, and `flatpak` packages.
+- **Windows**: Updates Chocolatey packages and triggers Windows Update via `UsoClient`.
 
 If the `code` CLI is not yet on `PATH`, the playbook prints a reminder to run “Shell Command: Install 'code' command in PATH” inside VS Code and rerun the play.
 
