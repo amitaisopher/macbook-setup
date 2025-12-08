@@ -24,3 +24,8 @@ vscode_extensions:
   - shyykoserhiy.aws-cdk-tools
   - ms-toolsai.datawrangler
   - anthropic.claude-dev
+
+chrome_extensions:
+  - edacconmaakjimmfgnblocblbcdcpbko # Session Buddy
+  - nngceckbapebfimnlniiiahkandclblb # Bitwarden
+  - gighmmpiobklfepjocnamgkkbiglidom # AdBlock

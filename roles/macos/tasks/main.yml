@@ -52,3 +52,8 @@
     name: "{{ item }}"
     state: present
   loop: "{{ nerd_fonts }}"
+
+- name: Configure Chrome ExtensionInstallForcelist
+  ansible.builtin.shell: |
+    defaults write com.google.Chrome ExtensionInstallForcelist -array {{ chrome_extensions | map('quote') | join(' ') }}
+  changed_when: false

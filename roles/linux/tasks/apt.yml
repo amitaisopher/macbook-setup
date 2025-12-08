@@ -79,3 +79,18 @@
   args:
     creates: /usr/local/bin/oh-my-posh
   become: true
+
+- name: Ensure Chrome policies directory exists (Flatpak)
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.var/app/com.google.Chrome/config/google-chrome/policies/managed"
+    state: directory
+    mode: '0755'
+
+- name: Configure Chrome extensions (Flatpak)
+  ansible.builtin.copy:
+    dest: "{{ ansible_env.HOME }}/.var/app/com.google.Chrome/config/google-chrome/policies/managed/extensions.json"
+    content: |
+      {
+        "ExtensionInstallForcelist": {{ chrome_extensions | to_json }}
+      }
+    mode: '0644'

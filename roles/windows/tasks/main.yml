@@ -49,4 +49,17 @@
     Get-ChildItem -Path $source -Filter *.ttf -Recurse | ForEach-Object {
       Copy-Item $_.FullName -Destination "$env:WINDIR\\Fonts" -Force
     }
+      Copy-Item $_.FullName -Destination "$env:WINDIR\\Fonts" -Force
+    }
   loop: "{{ nerd_fonts_to_install }}"
+
+- name: Configure Chrome ExtensionInstallForcelist
+  ansible.windows.win_regedit:
+    path: HKLM:\Software\Policies\Google\Chrome\ExtensionInstallForcelist
+    name: "{{ idx + 1 }}"
+    data: "{{ item }}"
+    type: string
+    state: present
+  loop: "{{ chrome_extensions }}"
+  loop_control:
+    index_var: idx
