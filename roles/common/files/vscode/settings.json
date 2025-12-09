@@ -10,7 +10,13 @@
     "editor.minimap.enabled": false,
     "files.insertFinalNewline": true,
     "files.trimTrailingWhitespace": true,
-    "terminal.integrated.fontFamily": "MartianMono Nerd Font Mono",
+    "terminal.integrated.fontFamily": "DroidSansM Nerd Font",
+    "terminal.integrated.fontSize": 18,
+    "workbench.colorCustomizations": {
+        "terminal.background": "#2E003E",
+        "terminal.foreground": "#EAE0C8",
+        "terminalCursor.foreground": "#EAE0C8"
+    },
     "terminal.integrated.defaultProfile.linux": "zsh",
     "terminal.integrated.defaultProfile.osx": "zsh",
     "terminal.integrated.defaultProfile.windows": "PowerShell",

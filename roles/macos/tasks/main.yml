@@ -76,3 +76,15 @@
     job: "softwareupdate -ia"
     user: root
     become: true
+
+- name: Configure Terminal.app appearance
+  ansible.builtin.shell: |
+    osascript -e 'tell application "Terminal"
+      set defaultSettings to default settings
+      set font name of defaultSettings to "DroidSansM Nerd Font Mono"
+      set font size of defaultSettings to 18
+      set background color of defaultSettings to {11776, 0, 15872}
+      set normal text color of defaultSettings to {60160, 57600, 51200}
+      set cursor color of defaultSettings to {60160, 57600, 51200}
+    end tell'
+  ignore_errors: true

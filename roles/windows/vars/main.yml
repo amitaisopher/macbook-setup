@@ -9,6 +9,8 @@ choco_strict_packages:
   - discord
   - slack
   - github-desktop
+  - rambox
+  - microsoft-windows-terminal
   - docker-desktop
   - awscli
   - aws-cdk

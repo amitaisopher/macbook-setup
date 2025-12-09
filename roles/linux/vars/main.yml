@@ -15,3 +15,4 @@ apt_packages:
   - fonts-martian-mono
   - fonts-droid-fallback
   - fonts-hack-ttf
+  - dconf-cli
