@@ -309,7 +309,8 @@
     weekday: "6"
     job: "apt-get update && apt-get upgrade -y && snap refresh"
     user: root
-    become: true
+  become: true
+  failed_when: false
 
 - name: Installation summary
   ansible.builtin.debug:
