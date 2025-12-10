@@ -5,11 +5,65 @@
     cache_valid_time: 3600
   become: true
 
-- name: Install base apt packages
+- name: Initialize install result tracking
+  ansible.builtin.set_fact:
+    install_success: []
+    install_failed: []
+
+- name: Install base apt packages (best effort)
   ansible.builtin.apt:
-    name: "{{ apt_packages }}"
+    name: "{{ item }}"
     state: present
+  loop: "{{ apt_packages }}"
+  loop_control:
+    label: "{{ item }}"
+  register: base_pkg_results
+  failed_when: false
   become: true
+
+- name: Track base apt package results
+  ansible.builtin.set_fact:
+    install_success: "{{ install_success + (base_pkg_results.results | selectattr('rc','equalto',0) | map(attribute='item') | list) }}"
+    install_failed: "{{ install_failed + (base_pkg_results.results | rejectattr('rc','equalto',0) | map(attribute='item') | list) }}"
+
+- name: Determine AWS CLI archive architecture
+  ansible.builtin.set_fact:
+    aws_cli_arch: "{{ 'aarch64' if ansible_architecture in ['aarch64', 'arm64'] else 'x86_64' }}"
+
+- name: Download AWS CLI v2 bundle (best effort)
+  ansible.builtin.get_url:
+    url: "https://awscli.amazonaws.com/awscli-exe-linux-{{ aws_cli_arch }}.zip"
+    dest: /tmp/awscliv2.zip
+    mode: '0644'
+  register: aws_cli_download
+  failed_when: false
+
+- name: Unpack AWS CLI v2 bundle (best effort)
+  ansible.builtin.unarchive:
+    src: /tmp/awscliv2.zip
+    dest: /tmp
+    remote_src: true
+    creates: /tmp/aws
+  register: aws_cli_unzip
+  failed_when: false
+
+- name: Install AWS CLI v2 (best effort)
+  ansible.builtin.command: ./aws/install -i /usr/local/aws-cli -b /usr/local/bin
+  args:
+    chdir: /tmp
+    creates: /usr/local/bin/aws
+  register: aws_cli_install
+  failed_when: false
+  become: true
+
+- name: Evaluate AWS CLI install status
+  ansible.builtin.set_fact:
+    aws_cli_failed: "{{ (aws_cli_download is failed) or (aws_cli_unzip is failed) or (aws_cli_install is failed) }}"
+
+- name: Track AWS CLI install result
+  ansible.builtin.set_fact:
+    install_success: "{{ install_success + (aws_cli_failed | ternary([], ['awscli v2'])) }}"
+    install_failed: "{{ install_failed + (aws_cli_failed | ternary(['awscli v2'], [])) }}"
 
 - name: Enable Docker service
   ansible.builtin.service:
@@ -17,6 +71,7 @@
     state: started
     enabled: true
   become: true
+  failed_when: false
 
 - name: Add current user to docker group
   ansible.builtin.user:
@@ -24,13 +79,21 @@
     groups: docker
     append: true
   become: true
+  failed_when: false
 
-- name: Install lazydocker via snap
+- name: Install lazydocker via snap (best effort)
   community.general.snap:
     name: lazydocker
     classic: true
     state: present
+  register: lazydocker_result
+  failed_when: false
   become: true
+
+- name: Track lazydocker install result
+  ansible.builtin.set_fact:
+    install_success: "{{ install_success + ((lazydocker_result is failed) | ternary([], ['lazydocker (snap)'])) }}"
+    install_failed: "{{ install_failed + ((lazydocker_result is failed) | ternary(['lazydocker (snap)'], [])) }}"
 
 - name: Ensure apt keyrings directory exists
   ansible.builtin.file:
@@ -45,6 +108,7 @@
     keyring: /etc/apt/keyrings/microsoft.gpg
     state: present
   become: true
+  failed_when: false
 
 - name: Add VS Code apt repository
   ansible.builtin.apt_repository:
@@ -52,6 +116,7 @@
     filename: vscode
     state: present
   become: true
+  failed_when: false
 
 - name: Add Google Chrome GPG key
   ansible.builtin.apt_key:
@@ -59,6 +124,7 @@
     keyring: /etc/apt/keyrings/google-linux-signing-keyring.gpg
     state: present
   become: true
+  failed_when: false
 
 - name: Add Google Chrome apt repository
   ansible.builtin.apt_repository:
@@ -66,6 +132,7 @@
     filename: google-chrome
     state: present
   become: true
+  failed_when: false
 
 - name: Add Slack GPG key
   ansible.builtin.apt_key:
@@ -73,6 +140,7 @@
     keyring: /etc/apt/keyrings/slack.gpg
     state: present
   become: true
+  failed_when: false
 
 - name: Add Slack apt repository
   ansible.builtin.apt_repository:
@@ -80,31 +148,55 @@
     filename: slack
     state: present
   become: true
+  failed_when: false
 
 - name: Refresh apt cache after adding repositories
   ansible.builtin.apt:
     update_cache: true
   become: true
 
-- name: Install desktop applications via apt
+- name: Install desktop applications via apt (best effort)
   ansible.builtin.apt:
-    name:
-      - code
-      - google-chrome-stable
-      - slack-desktop
+    name: "{{ item }}"
     state: present
+  loop:
+    - code
+    - google-chrome-stable
+    - slack-desktop
+  loop_control:
+    label: "{{ item }}"
+  register: desktop_pkg_results
+  failed_when: false
   become: true
 
-- name: Install Discord via vendor .deb
+- name: Track desktop app install results
+  ansible.builtin.set_fact:
+    install_success: "{{ install_success + (desktop_pkg_results.results | selectattr('rc','equalto',0) | map(attribute='item') | list) }}"
+    install_failed: "{{ install_failed + (desktop_pkg_results.results | rejectattr('rc','equalto',0) | map(attribute='item') | list) }}"
+
+- name: Install Discord via vendor .deb (best effort)
   ansible.builtin.apt:
     deb: "https://discord.com/api/download?platform=linux&format=deb"
+  register: discord_install
+  failed_when: false
   become: true
+
+- name: Track Discord install result
+  ansible.builtin.set_fact:
+    install_success: "{{ install_success + ((((discord_install.rc | default(1)) == 0) | ternary(['discord'], []))) }}"
+    install_failed: "{{ install_failed + ((((discord_install.rc | default(1)) == 0) | ternary([], ['discord']))) }}"
 
 - name: Install Bitwarden via vendor .deb (best effort)
   ansible.builtin.apt:
     deb: "https://vault.bitwarden.com/download/?app=desktop&platform=linux&variant=deb"
-  ignore_errors: true
+  register: bitwarden_install
+  failed_when: false
   become: true
+
+- name: Track Bitwarden install result
+  ansible.builtin.set_fact:
+    install_success: "{{ install_success + ((((bitwarden_install.rc | default(1)) == 0) | ternary(['bitwarden'], []))) }}"
+    install_failed: "{{ install_failed + ((((bitwarden_install.rc | default(1)) == 0) | ternary([], ['bitwarden']))) }}"
 
 - name: Install uv package manager
   ansible.builtin.shell: |
@@ -113,18 +205,24 @@
     creates: "{{ ansible_env.HOME }}/.local/bin/uv"
   environment:
     UV_NO_MODIFY_PATH: "1"
+  register: uv_install
+  failed_when: false
 
 - name: Install nvm
   ansible.builtin.shell: |
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
   args:
     creates: "{{ ansible_env.HOME }}/.nvm/nvm.sh"
+  register: nvm_install
+  failed_when: false
 
 - name: Install bun runtime
   ansible.builtin.shell: |
     curl -fsSL https://bun.sh/install | bash
   args:
     creates: "{{ ansible_env.HOME }}/.bun/bin/bun"
+  register: bun_install
+  failed_when: false
 
 - name: Install oh-my-posh
   ansible.builtin.shell: |
@@ -132,6 +230,21 @@
   args:
     creates: /usr/local/bin/oh-my-posh
   become: true
+  register: omp_install
+  failed_when: false
+
+- name: Track CLI/tool install results
+  ansible.builtin.set_fact:
+    install_success: "{{ install_success
+      + (((uv_install.rc | default(1)) == 0) | ternary(['uv'], []))
+      + (((nvm_install.rc | default(1)) == 0) | ternary(['nvm'], []))
+      + (((bun_install.rc | default(1)) == 0) | ternary(['bun'], []))
+      + (((omp_install.rc | default(1)) == 0) | ternary(['oh-my-posh'], [])) }}"
+    install_failed: "{{ install_failed
+      + (((uv_install.rc | default(1)) == 0) | ternary([], ['uv']))
+      + (((nvm_install.rc | default(1)) == 0) | ternary([], ['nvm']))
+      + (((bun_install.rc | default(1)) == 0) | ternary([], ['bun']))
+      + (((omp_install.rc | default(1)) == 0) | ternary([], ['oh-my-posh'])) }}"
 
 - name: Ensure Chrome policies directory exists
   ansible.builtin.file:
@@ -159,6 +272,12 @@
     job: "apt-get update && apt-get upgrade -y && snap refresh"
     user: root
     become: true
+
+- name: Installation summary
+  ansible.builtin.debug:
+    msg:
+      - "Successful installs: {{ install_success | unique }}"
+      - "Failed installs: {{ install_failed | unique }}"
 
 - name: Configure GNOME Terminal profile
   ansible.builtin.shell: |
