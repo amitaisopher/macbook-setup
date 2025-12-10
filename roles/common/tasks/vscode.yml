@@ -37,7 +37,7 @@
       ansible.builtin.command: "code --install-extension {{ item }} --force"
       loop: "{{ vscode_extensions }}"
       changed_when: "'already installed' not in (stdout | default('') | lower)"
-      failed_when: "rc not in [0]"
+      failed_when: false
       when: vscode_cli_check_posix.rc == 0
       loop_control:
         label: "{{ item }}"
