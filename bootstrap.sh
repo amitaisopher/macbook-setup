@@ -105,4 +105,21 @@ esac
 cd "$REPO_ROOT"
 log "Installing required Ansible collections..."
 ansible-galaxy collection install -r requirements.yml
-ansible-playbook -i inventory main.yml "$@"
+
+# Ensure we prompt for sudo password on Linux when needed
+ansible_args=("$@")
+if [[ "$(uname -s)" == "Linux" && "${EUID:-$(id -u)}" -ne 0 ]]; then
+  need_become_pass=true
+  for arg in "${ansible_args[@]}"; do
+    if [[ "$arg" == "--ask-become-pass" || "$arg" == "-K" || "$arg" == "--become-password-file="* ]]; then
+      need_become_pass=false
+      break
+    fi
+  done
+  if [[ "$need_become_pass" == true ]]; then
+    log "Adding --ask-become-pass (sudo password required for apt installs)."
+    ansible_args+=("--ask-become-pass")
+  fi
+fi
+
+ansible-playbook -i inventory main.yml "${ansible_args[@]}"
