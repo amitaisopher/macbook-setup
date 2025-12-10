@@ -79,5 +79,6 @@ case "$(uname -s)" in
 esac
 
 cd "$REPO_ROOT"
-ansible-galaxy collection install -r requirements.yml >/dev/null 2>&1 || true
+log "Installing required Ansible collections..."
+ansible-galaxy collection install -r requirements.yml
 ansible-playbook -i inventory main.yml "$@"
