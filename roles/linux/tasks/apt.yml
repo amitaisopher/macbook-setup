@@ -23,8 +23,16 @@
 
 - name: Track base apt package results
   ansible.builtin.set_fact:
-    install_success: "{{ install_success + (base_pkg_results.results | selectattr('rc','equalto',0) | map(attribute='item') | list) }}"
-    install_failed: "{{ install_failed + (base_pkg_results.results | rejectattr('rc','equalto',0) | map(attribute='item') | list) }}"
+    install_success: "{{ (install_success | default([], true))
+      + (base_pkg_results.results | default([], true)
+         | selectattr('rc','defined')
+         | selectattr('rc','equalto',0)
+         | map(attribute='item') | list) }}"
+    install_failed: "{{ (install_failed | default([], true))
+      + (base_pkg_results.results | default([], true)
+         | selectattr('rc','defined')
+         | rejectattr('rc','equalto',0)
+         | map(attribute='item') | list) }}"
 
 - name: Determine AWS CLI archive architecture
   ansible.builtin.set_fact:
@@ -62,8 +70,8 @@
 
 - name: Track AWS CLI install result
   ansible.builtin.set_fact:
-    install_success: "{{ install_success + (aws_cli_failed | ternary([], ['awscli v2'])) }}"
-    install_failed: "{{ install_failed + (aws_cli_failed | ternary(['awscli v2'], [])) }}"
+    install_success: "{{ (install_success | default([])) + (aws_cli_failed | ternary([], ['awscli v2'])) }}"
+    install_failed: "{{ (install_failed | default([])) + (aws_cli_failed | ternary(['awscli v2'], [])) }}"
 
 - name: Enable Docker service
   ansible.builtin.service:
@@ -92,8 +100,8 @@
 
 - name: Track lazydocker install result
   ansible.builtin.set_fact:
-    install_success: "{{ install_success + ((lazydocker_result is failed) | ternary([], ['lazydocker (snap)'])) }}"
-    install_failed: "{{ install_failed + ((lazydocker_result is failed) | ternary(['lazydocker (snap)'], [])) }}"
+    install_success: "{{ (install_success | default([])) + ((lazydocker_result is failed) | ternary([], ['lazydocker (snap)'])) }}"
+    install_failed: "{{ (install_failed | default([])) + ((lazydocker_result is failed) | ternary(['lazydocker (snap)'], [])) }}"
 
 - name: Ensure apt keyrings directory exists
   ansible.builtin.file:
@@ -102,17 +110,39 @@
     mode: '0755'
   become: true
 
+- name: Remove legacy VS Code repository file (to avoid signed-by conflicts)
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/vscode.list
+    state: absent
+  become: true
+  failed_when: false
+
+- name: Remove legacy VS Code repository entry using /etc/apt/keyrings
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main"
+    filename: vscode
+    state: absent
+  become: true
+  failed_when: false
+
+- name: Remove legacy Microsoft keyring path
+  ansible.builtin.file:
+    path: /etc/apt/keyrings/microsoft.gpg
+    state: absent
+  become: true
+  failed_when: false
+
 - name: Add Microsoft GPG key (VS Code)
   ansible.builtin.apt_key:
     url: https://packages.microsoft.com/keys/microsoft.asc
-    keyring: /etc/apt/keyrings/microsoft.gpg
+    keyring: /usr/share/keyrings/microsoft.gpg
     state: present
   become: true
   failed_when: false
 
 - name: Add VS Code apt repository
   ansible.builtin.apt_repository:
-    repo: "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main"
+    repo: "deb [arch=amd64,arm64,armhf signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main"
     filename: vscode
     state: present
   become: true
@@ -171,8 +201,16 @@
 
 - name: Track desktop app install results
   ansible.builtin.set_fact:
-    install_success: "{{ install_success + (desktop_pkg_results.results | selectattr('rc','equalto',0) | map(attribute='item') | list) }}"
-    install_failed: "{{ install_failed + (desktop_pkg_results.results | rejectattr('rc','equalto',0) | map(attribute='item') | list) }}"
+    install_success: "{{ (install_success | default([], true))
+      + (desktop_pkg_results.results | default([], true)
+         | selectattr('rc','defined')
+         | selectattr('rc','equalto',0)
+         | map(attribute='item') | list) }}"
+    install_failed: "{{ (install_failed | default([], true))
+      + (desktop_pkg_results.results | default([], true)
+         | selectattr('rc','defined')
+         | rejectattr('rc','equalto',0)
+         | map(attribute='item') | list) }}"
 
 - name: Install Discord via vendor .deb (best effort)
   ansible.builtin.apt:
@@ -183,8 +221,8 @@
 
 - name: Track Discord install result
   ansible.builtin.set_fact:
-    install_success: "{{ install_success + ((((discord_install.rc | default(1)) == 0) | ternary(['discord'], []))) }}"
-    install_failed: "{{ install_failed + ((((discord_install.rc | default(1)) == 0) | ternary([], ['discord']))) }}"
+    install_success: "{{ (install_success | default([])) + ((((discord_install.rc | default(1)) == 0) | ternary(['discord'], []))) }}"
+    install_failed: "{{ (install_failed | default([])) + ((((discord_install.rc | default(1)) == 0) | ternary([], ['discord']))) }}"
 
 - name: Install Bitwarden via vendor .deb (best effort)
   ansible.builtin.apt:
@@ -195,8 +233,8 @@
 
 - name: Track Bitwarden install result
   ansible.builtin.set_fact:
-    install_success: "{{ install_success + ((((bitwarden_install.rc | default(1)) == 0) | ternary(['bitwarden'], []))) }}"
-    install_failed: "{{ install_failed + ((((bitwarden_install.rc | default(1)) == 0) | ternary([], ['bitwarden']))) }}"
+    install_success: "{{ (install_success | default([])) + ((((bitwarden_install.rc | default(1)) == 0) | ternary(['bitwarden'], []))) }}"
+    install_failed: "{{ (install_failed | default([])) + ((((bitwarden_install.rc | default(1)) == 0) | ternary([], ['bitwarden']))) }}"
 
 - name: Install uv package manager
   ansible.builtin.shell: |
@@ -235,12 +273,12 @@
 
 - name: Track CLI/tool install results
   ansible.builtin.set_fact:
-    install_success: "{{ install_success
+    install_success: "{{ (install_success | default([]))
       + (((uv_install.rc | default(1)) == 0) | ternary(['uv'], []))
       + (((nvm_install.rc | default(1)) == 0) | ternary(['nvm'], []))
       + (((bun_install.rc | default(1)) == 0) | ternary(['bun'], []))
       + (((omp_install.rc | default(1)) == 0) | ternary(['oh-my-posh'], [])) }}"
-    install_failed: "{{ install_failed
+    install_failed: "{{ (install_failed | default([]))
       + (((uv_install.rc | default(1)) == 0) | ternary([], ['uv']))
       + (((nvm_install.rc | default(1)) == 0) | ternary([], ['nvm']))
       + (((bun_install.rc | default(1)) == 0) | ternary([], ['bun']))
