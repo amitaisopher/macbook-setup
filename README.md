@@ -12,7 +12,7 @@ Automate the full bootstrap of a development workstation with a single Ansible p
 
 ## Toolchain Overview
 - **Ansible** orchestrates everything in pull/local mode (`inventory` targets `localhost`).
-- **Homebrew (macOS), apt/Flatpak/Snap (Linux), Chocolatey (Windows)** handle software installation.
+- **Homebrew (macOS), apt + Snap (Linux), Chocolatey (Windows)** handle software installation.
 - **VS Code** receives customized settings plus extension installs via CLI.
 - **oh-my-posh** aligns shell prompts across PowerShell, bash, and zsh with `roles/common/files/oh-my-posh/theme.json`.
 
@@ -24,7 +24,7 @@ inventory                      # local-only inventory
 roles/
   common/                      # cross-OS config (directories, VS Code, shell theme)
   macos/                       # Homebrew formulas + casks + Nerd Fonts
-  linux/                       # apt + Flatpak installs, CLI bootstrappers (uv, nvm, bun)
+  linux/                       # apt + Snap installs, CLI bootstrappers (uv, nvm, bun)
   windows/                     # Chocolatey installs + Nerd Font deployment
 roles/common/files/vscode/*    # VS Code settings JSON
 roles/common/files/oh-my-posh  # prompt theme
@@ -55,7 +55,7 @@ The playbook automatically installs and enforces the following Chrome extensions
 ## Automatic Updates
 The system is configured to run automatic updates every **Saturday at 20:00**:
 - **macOS**: Updates Homebrew packages and runs `softwareupdate -ia` for system updates.
-- **Linux**: Updates `apt`, `snap`, and `flatpak` packages.
+- **Linux**: Updates `apt` and `snap` packages.
 - **Windows**: Updates Chocolatey packages and triggers Windows Update via `UsoClient`.
 
 If the `code` CLI is not yet on `PATH`, the playbook prints a reminder to run “Shell Command: Install 'code' command in PATH” inside VS Code and rerun the play.
@@ -88,7 +88,6 @@ Set-ExecutionPolicy Bypass -Scope Process -Force
 ## Troubleshooting
 - Optional/beta apps without official packages (e.g., Google AntiGravity, WindSurf) are installed in a best-effort block. Check the Ansible output for the warning list and update the cask/package names as soon as upstreams publish them.
 - VS Code extensions require the CLI. If skipped, enable the `code` command (macOS: VS Code menu → Install 'code' command in PATH; Windows: reinstall with CLI option) and rerun the `common` role.
-- Linux Flatpak installs may require a logout/login the first time Flatpak is added. Re-run `ansible-playbook -i inventory main.yml -t linux` afterward.
 - For Docker on Linux, log out or run `newgrp docker` after the play so group membership takes effect.
 
 ## Next Steps

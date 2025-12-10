@@ -7,7 +7,8 @@ apt_packages:
   - python3
   - python3-pip
   - snapd
-  - flatpak
+  - ca-certificates
+  - gnupg
   - awscli
   - docker.io
   - docker-compose-plugin

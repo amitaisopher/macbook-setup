@@ -32,25 +32,77 @@
     state: present
   become: true
 
-- name: Ensure Flathub remote exists
-  community.general.flatpak_remote:
-    name: flathub
-    state: present
-    url: https://dl.flathub.org/repo/flathub.flatpakrepo
+- name: Ensure apt keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
   become: true
 
-- name: Install desktop apps via Flatpak (best effort)
-  community.general.flatpak:
-    name:
-      - com.visualstudio.code
-      - com.slack.Slack
-      - org.mozilla.firefox
-      - com.discordapp.Discord
-      - com.google.Chrome
-      - com.bitwarden.desktop
-      - io.github.shiftey.Desktop
-      - pro.rambox.Rambox
+- name: Add Microsoft GPG key (VS Code)
+  ansible.builtin.apt_key:
+    url: https://packages.microsoft.com/keys/microsoft.asc
+    keyring: /etc/apt/keyrings/microsoft.gpg
     state: present
+  become: true
+
+- name: Add VS Code apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main"
+    filename: vscode
+    state: present
+  become: true
+
+- name: Add Google Chrome GPG key
+  ansible.builtin.apt_key:
+    url: https://dl.google.com/linux/linux_signing_key.pub
+    keyring: /etc/apt/keyrings/google-linux-signing-keyring.gpg
+    state: present
+  become: true
+
+- name: Add Google Chrome apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-linux-signing-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main"
+    filename: google-chrome
+    state: present
+  become: true
+
+- name: Add Slack GPG key
+  ansible.builtin.apt_key:
+    url: https://packagecloud.io/slacktechnologies/slack/gpgkey
+    keyring: /etc/apt/keyrings/slack.gpg
+    state: present
+  become: true
+
+- name: Add Slack apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/slack.gpg] https://packagecloud.io/slacktechnologies/slack/debian/ jessie main"
+    filename: slack
+    state: present
+  become: true
+
+- name: Refresh apt cache after adding repositories
+  ansible.builtin.apt:
+    update_cache: true
+  become: true
+
+- name: Install desktop applications via apt
+  ansible.builtin.apt:
+    name:
+      - code
+      - google-chrome-stable
+      - slack-desktop
+    state: present
+  become: true
+
+- name: Install Discord via vendor .deb
+  ansible.builtin.apt:
+    deb: "https://discord.com/api/download?platform=linux&format=deb"
+  become: true
+
+- name: Install Bitwarden via vendor .deb (best effort)
+  ansible.builtin.apt:
+    deb: "https://vault.bitwarden.com/download/?app=desktop&platform=linux&variant=deb"
   ignore_errors: true
   become: true
 
@@ -81,20 +133,22 @@
     creates: /usr/local/bin/oh-my-posh
   become: true
 
-- name: Ensure Chrome policies directory exists (Flatpak)
+- name: Ensure Chrome policies directory exists
   ansible.builtin.file:
-    path: "{{ ansible_env.HOME }}/.var/app/com.google.Chrome/config/google-chrome/policies/managed"
+    path: /etc/opt/chrome/policies/managed
     state: directory
     mode: '0755'
+  become: true
 
-- name: Configure Chrome extensions (Flatpak)
+- name: Configure Chrome extensions
   ansible.builtin.copy:
-    dest: "{{ ansible_env.HOME }}/.var/app/com.google.Chrome/config/google-chrome/policies/managed/extensions.json"
+    dest: /etc/opt/chrome/policies/managed/extensions.json
     content: |
       {
         "ExtensionInstallForcelist": {{ chrome_extensions | to_json }}
       }
     mode: '0644'
+  become: true
 
 - name: Schedule weekly system updates (Saturday at 20:00)
   ansible.builtin.cron:
@@ -102,7 +156,7 @@
     minute: "0"
     hour: "20"
     weekday: "6"
-    job: "apt-get update && apt-get upgrade -y && snap refresh && flatpak update -y"
+    job: "apt-get update && apt-get upgrade -y && snap refresh"
     user: root
     become: true
 
