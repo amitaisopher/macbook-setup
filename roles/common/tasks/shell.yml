@@ -62,7 +62,7 @@
   when:
     - ansible_facts['os_family'] != 'Windows'
     - ansible_facts.shell is defined
-    - 'zsh' in ansible_facts.shell
+    - '"zsh" in ansible_facts.shell'
 
 - name: Ensure PowerShell profile directory exists
   ansible.windows.win_file:
