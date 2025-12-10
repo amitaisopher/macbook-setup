@@ -20,24 +20,12 @@
     mode: '0755'
   when: ansible_facts['os_family'] != 'Windows'
 
-- name: Ensure oh-my-posh config directory exists on Windows hosts
-  ansible.windows.win_file:
-    path: "{{ posh_config_dir }}"
-    state: directory
-  when: ansible_facts['os_family'] == 'Windows'
-
 - name: Deploy oh-my-posh theme on POSIX hosts
   ansible.builtin.copy:
     src: oh-my-posh/theme.json
     dest: "{{ posh_theme_file }}"
     mode: '0644'
   when: ansible_facts['os_family'] != 'Windows'
-
-- name: Deploy oh-my-posh theme on Windows hosts
-  ansible.windows.win_copy:
-    src: oh-my-posh/theme.json
-    dest: "{{ posh_theme_file }}"
-  when: ansible_facts['os_family'] == 'Windows'
 
 - name: Configure bash prompt to use oh-my-posh
   ansible.builtin.blockinfile:
@@ -64,16 +52,6 @@
     - ansible_facts.shell is defined
     - '"zsh" in ansible_facts.shell'
 
-- name: Ensure PowerShell profile directory exists
-  ansible.windows.win_file:
-    path: "{{ ansible_env.USERPROFILE }}\\Documents\\PowerShell"
-    state: directory
-  when: ansible_facts['os_family'] == 'Windows'
-
-- name: Configure PowerShell prompt to use oh-my-posh
-  ansible.windows.win_lineinfile:
-    path: "{{ ansible_env.USERPROFILE }}\\Documents\\PowerShell\\Microsoft.PowerShell_profile.ps1"
-    create: true
-    line: "oh-my-posh init pwsh --config $env:USERPROFILE/.config/oh-my-posh/theme.json | Invoke-Expression"
-    insertafter: EOF
+- name: Include Windows shell configuration
+  ansible.builtin.include_tasks: shell_windows.yml
   when: ansible_facts['os_family'] == 'Windows'

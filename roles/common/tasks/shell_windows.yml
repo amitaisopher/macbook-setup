@@ -1,0 +1,22 @@
+---
+- name: Ensure oh-my-posh config directory exists on Windows hosts
+  community.windows.win_file:
+    path: "{{ posh_config_dir }}"
+    state: directory
+
+- name: Deploy oh-my-posh theme on Windows hosts
+  community.windows.win_copy:
+    src: oh-my-posh/theme.json
+    dest: "{{ posh_theme_file }}"
+
+- name: Ensure PowerShell profile directory exists
+  community.windows.win_file:
+    path: "{{ ansible_env.USERPROFILE }}\\Documents\\PowerShell"
+    state: directory
+
+- name: Configure PowerShell prompt to use oh-my-posh
+  community.windows.win_lineinfile:
+    path: "{{ ansible_env.USERPROFILE }}\\Documents\\PowerShell\\Microsoft.PowerShell_profile.ps1"
+    create: true
+    line: "oh-my-posh init pwsh --config $env:USERPROFILE/.config/oh-my-posh/theme.json | Invoke-Expression"
+    insertafter: EOF
