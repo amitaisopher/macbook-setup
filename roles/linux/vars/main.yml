@@ -9,6 +9,8 @@ apt_packages:
   - snapd
   - ca-certificates
   - gnupg
+  - jq
+  - tldr
   - docker.io
   - docker-compose-plugin
   - btop

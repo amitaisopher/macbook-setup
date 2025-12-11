@@ -8,9 +8,11 @@
         120
     ],
     "editor.minimap.enabled": false,
+    "editor.minimap.renderCharacters": false,
     "files.insertFinalNewline": true,
     "files.trimTrailingWhitespace": true,
-    "terminal.integrated.fontFamily": "DroidSansM Nerd Font",
+    "workbench.iconTheme": "bearded-icons",
+    "terminal.integrated.fontFamily": "DroidSansM Nerd Font Mono, monospace",
     "terminal.integrated.fontSize": 18,
     "workbench.colorCustomizations": {
         "terminal.background": "#2E003E",
