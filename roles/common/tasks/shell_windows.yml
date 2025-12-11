@@ -1,14 +1,4 @@
 ---
-- name: Ensure oh-my-posh theme directory exists on Windows hosts
-  community.windows.win_file:
-    path: "{{ posh_theme_dir }}"
-    state: directory
-
-- name: Download atomic oh-my-posh theme (Windows)
-  community.windows.win_get_url:
-    url: https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json
-    dest: "{{ posh_theme_path }}"
-
 - name: Ensure PowerShell profile directory exists
   community.windows.win_file:
     path: "{{ ansible_env.USERPROFILE }}\\Documents\\PowerShell"
