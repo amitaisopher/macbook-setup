@@ -180,28 +180,20 @@
   become: true
   failed_when: false
 
-- name: Remove legacy Spotify keyring path (if present)
-  ansible.builtin.file:
-    path: /etc/apt/keyrings/spotify.gpg
-    state: absent
-  become: true
+- name: Import Spotify GPG key
+  ansible.builtin.command: >
+    bash -lc "curl -sS https://download.spotify.com/debian/pubkey_5384CE82BA52C83A.asc
+    | sudo gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/spotify.gpg"
+  changed_when: false
   failed_when: false
-
-- name: Add Spotify GPG key
-  ansible.builtin.apt_key:
-    url: https://download.spotify.com/debian/pubkey_0D811D58.gpg
-    keyring: /usr/share/keyrings/spotify.gpg
-    state: present
   become: true
-  failed_when: false
 
 - name: Add Spotify apt repository
-  ansible.builtin.apt_repository:
-    repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/spotify.gpg] http://repository.spotify.com stable non-free"
-    filename: spotify
-    state: present
-  become: true
+  ansible.builtin.command: >
+    bash -lc "echo \"deb https://repository.spotify.com stable non-free\" | sudo tee /etc/apt/sources.list.d/spotify.list"
+  changed_when: false
   failed_when: false
+  become: true
 
 - name: Refresh apt cache after adding repositories
   ansible.builtin.apt:
