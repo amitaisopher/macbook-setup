@@ -18,3 +18,10 @@ apt_packages:
   - fonts-droid-fallback
   - fonts-hack-ttf
   - dconf-cli
+
+nerd_fonts_release: v3.1.1
+nerd_fonts_to_install:
+  - name: MartianMono
+    archive: MartianMono.zip
+  - name: DroidSansMono
+    archive: DroidSansMono.zip

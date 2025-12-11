@@ -180,17 +180,24 @@
   become: true
   failed_when: false
 
+- name: Remove legacy Spotify keyring path (if present)
+  ansible.builtin.file:
+    path: /etc/apt/keyrings/spotify.gpg
+    state: absent
+  become: true
+  failed_when: false
+
 - name: Add Spotify GPG key
   ansible.builtin.apt_key:
     url: https://download.spotify.com/debian/pubkey_0D811D58.gpg
-    keyring: /etc/apt/keyrings/spotify.gpg
+    keyring: /usr/share/keyrings/spotify.gpg
     state: present
   become: true
   failed_when: false
 
 - name: Add Spotify apt repository
   ansible.builtin.apt_repository:
-    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/spotify.gpg] http://repository.spotify.com stable non-free"
+    repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/spotify.gpg] http://repository.spotify.com stable non-free"
     filename: spotify
     state: present
   become: true
@@ -253,6 +260,80 @@
     install_success: "{{ (install_success | default([])) + ((((bitwarden_install.rc | default(1)) == 0) | ternary(['bitwarden'], []))) }}"
     install_failed: "{{ (install_failed | default([])) + ((((bitwarden_install.rc | default(1)) == 0) | ternary([], ['bitwarden']))) }}"
 
+- name: Ensure Nerd Font temp directory exists
+  ansible.builtin.file:
+    path: /tmp/nerd-fonts
+    state: directory
+    mode: '0755'
+  failed_when: false
+
+- name: Download Nerd Font archives (best effort)
+  ansible.builtin.get_url:
+    url: "https://github.com/ryanoasis/nerd-fonts/releases/download/{{ nerd_fonts_release }}/{{ item.archive }}"
+    dest: "/tmp/nerd-fonts/{{ item.archive }}"
+    mode: '0644'
+  loop: "{{ nerd_fonts_to_install }}"
+  register: nerd_font_downloads
+  failed_when: false
+
+- name: Ensure Nerd Font extract directories exist
+  ansible.builtin.file:
+    path: "/tmp/nerd-fonts/{{ item.name }}"
+    state: directory
+    mode: '0755'
+  loop: "{{ nerd_fonts_to_install }}"
+  failed_when: false
+
+- name: Extract Nerd Font archives (best effort)
+  ansible.builtin.unarchive:
+    src: "/tmp/nerd-fonts/{{ item.archive }}"
+    dest: "/tmp/nerd-fonts/{{ item.name }}"
+    remote_src: true
+  loop: "{{ nerd_fonts_to_install }}"
+  register: nerd_font_unzip
+  failed_when: false
+
+- name: Collect Nerd Font TTF files
+  ansible.builtin.find:
+    paths: /tmp/nerd-fonts
+    patterns: "*.ttf"
+    recurse: true
+  register: nerd_font_files
+  failed_when: false
+
+- name: Ensure system Nerd Font directory exists
+  ansible.builtin.file:
+    path: /usr/local/share/fonts/nerd-fonts
+    state: directory
+    mode: '0755'
+  become: true
+  failed_when: false
+
+- name: Install Nerd Fonts (best effort)
+  ansible.builtin.copy:
+    src: "{{ item.path }}"
+    dest: "/usr/local/share/fonts/nerd-fonts/{{ item.path | basename }}"
+    mode: '0644'
+    remote_src: true
+  loop: "{{ nerd_font_files.files | default([]) }}"
+  register: nerd_font_copy
+  failed_when: false
+  become: true
+
+- name: Refresh font cache (best effort)
+  ansible.builtin.command: fc-cache -f
+  register: nerd_font_fccache
+  failed_when: false
+
+- name: Track Nerd Font install result
+  ansible.builtin.set_fact:
+    install_success: "{{ (install_success | default([]))
+      + ((nerd_font_copy.results | default([]) | selectattr('failed','defined') | selectattr('failed') | list | length == 0
+          and (nerd_font_files.files | default([]) | length > 0)) | ternary(['nerd fonts'], [])) }}"
+    install_failed: "{{ (install_failed | default([]))
+      + ((nerd_font_copy.results | default([]) | selectattr('failed','defined') | selectattr('failed') | list | length == 0
+          and (nerd_font_files.files | default([]) | length > 0)) | ternary([], ['nerd fonts'])) }}"
+
 - name: Install uv package manager
   ansible.builtin.shell: |
     curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -279,12 +360,17 @@
   register: bun_install
   failed_when: false
 
-- name: Install oh-my-posh
+- name: Ensure local bin directory exists
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.local/bin"
+    state: directory
+    mode: '0755'
+
+- name: Install oh-my-posh (official script, user scope)
   ansible.builtin.shell: |
-    curl -s https://ohmyposh.dev/install.sh | bash -s -- -d /usr/local/bin
+    curl -s https://ohmyposh.dev/install.sh | bash -s -- -d "{{ ansible_env.HOME }}/.local/bin"
   args:
-    creates: /usr/local/bin/oh-my-posh
-  become: true
+    creates: "{{ ansible_env.HOME }}/.local/bin/oh-my-posh"
   register: omp_install
   failed_when: false
 
