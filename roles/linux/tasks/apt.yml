@@ -288,7 +288,9 @@
 - name: Collect Nerd Font TTF files
   ansible.builtin.find:
     paths: /tmp/nerd-fonts
-    patterns: "*.ttf"
+    patterns:
+      - "*.ttf"
+      - "*.otf"
     recurse: true
   register: nerd_font_files
   failed_when: false
@@ -325,6 +327,20 @@
     install_failed: "{{ (install_failed | default([]))
       + ((nerd_font_copy.results | default([]) | selectattr('failed','defined') | selectattr('failed') | list | length == 0
           and (nerd_font_files.files | default([]) | length > 0)) | ternary([], ['nerd fonts'])) }}"
+
+- name: Check installed Nerd Fonts by name
+  ansible.builtin.find:
+    paths: /usr/local/share/fonts/nerd-fonts
+    patterns: "*{{ item.name }}*"
+    recurse: true
+  loop: "{{ nerd_fonts_to_install }}"
+  register: nerd_font_installed
+  failed_when: false
+
+- name: Track Nerd Fonts per family
+  ansible.builtin.set_fact:
+    install_success: "{{ (install_success | default([])) + (nerd_font_installed.results | default([]) | selectattr('matched','gt',0) | map(attribute='item.name') | list) }}"
+    install_failed: "{{ (install_failed | default([])) + (nerd_font_installed.results | default([]) | selectattr('matched','equalto',0) | map(attribute='item.name') | list) }}"
 
 - name: Install uv package manager
   ansible.builtin.shell: |
