@@ -429,17 +429,30 @@
       - "Successful installs: {{ install_success | unique }}"
       - "Failed installs: {{ install_failed | unique }}"
 
+- name: Switch GNOME interface to dark mode
+  ansible.builtin.command: gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+  failed_when: false
+  changed_when: false
+  ignore_errors: true
+
 - name: Configure GNOME Terminal profile
   ansible.builtin.shell: |
     # Get default profile ID
     profile_id=$(gsettings get org.gnome.Terminal.ProfilesList default | tr -d "'")
     # Set colors and font
-    dconf write /org/gnome/terminal/legacy/profiles:/:$profile_id/font "'DroidSansM Nerd Font Mono 18'"
+    dconf write /org/gnome/terminal/legacy/profiles:/:$profile_id/font "'DroidSansM Nerd Font Mono 14'"
     dconf write /org/gnome/terminal/legacy/profiles:/:$profile_id/background-color "'#2E003E'"
     dconf write /org/gnome/terminal/legacy/profiles:/:$profile_id/foreground-color "'#EAE0C8'"
     dconf write /org/gnome/terminal/legacy/profiles:/:$profile_id/use-theme-colors "false"
     dconf write /org/gnome/terminal/legacy/profiles:/:$profile_id/use-transparent-background "true"
-    dconf write /org/gnome/terminal/legacy/profiles:/:$profile_id/background-transparency-percent "10"
+    dconf write /org/gnome/terminal/legacy/profiles:/:$profile_id/background-transparency-percent "14"
   ignore_errors: true
   args:
     executable: /bin/bash
+
+- name: Reload bash configuration
+  ansible.builtin.shell: source "{{ ansible_env.HOME }}/.bashrc"
+  args:
+    executable: /bin/bash
+  changed_when: false
+  failed_when: false
