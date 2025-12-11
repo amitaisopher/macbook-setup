@@ -20,6 +20,13 @@
     mode: '0755'
   when: ansible_facts['os_family'] != 'Windows'
 
+- name: Ensure oh-my-posh theme parent directory exists on POSIX hosts
+  ansible.builtin.file:
+    path: "{{ posh_theme_file | dirname }}"
+    state: directory
+    mode: '0755'
+  when: ansible_facts['os_family'] != 'Windows'
+
 - name: Deploy oh-my-posh theme on POSIX hosts
   ansible.builtin.copy:
     src: oh-my-posh/theme.json
