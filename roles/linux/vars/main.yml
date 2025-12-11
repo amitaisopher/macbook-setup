@@ -19,7 +19,7 @@ apt_packages:
   - fonts-hack-ttf
   - dconf-cli
 
-nerd_fonts_release: v3.1.1
+nerd_fonts_release: v3.4.0
 nerd_fonts_to_install:
   - name: MartianMono
     archive: MartianMono.zip
