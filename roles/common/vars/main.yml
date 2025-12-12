@@ -14,7 +14,8 @@ vscode_extensions:
   - ms-vscode-remote.remote-containers
   - openai.openai-codex
   - biomejs.biome
-  - BeardedBear.bearded-icons
+  - BeardedBear.beardedicons
+  - beardedbear.beardedtheme
   - formulahendry.auto-rename-tag
 
 chrome_extensions:

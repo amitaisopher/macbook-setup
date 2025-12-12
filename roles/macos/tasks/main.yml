@@ -18,19 +18,328 @@
     creates: /opt/homebrew/bin/brew
   when: not brew_is_installed
 
+- name: Detect running Homebrew operations
+  ansible.builtin.shell: |
+    pgrep -fl '/opt/homebrew/bin/brew|/usr/local/bin/brew' || true
+  register: brew_running_processes
+  changed_when: false
+
+- name: Handle running Homebrew operations
+  when: brew_running_processes.stdout | length > 0
+  block:
+    - name: Announce running Homebrew process
+      ansible.builtin.debug:
+        msg: >-
+          Another Homebrew process is running ({{ brew_running_processes.stdout_lines | join(', ') }}).
+          Waiting for it to finish before continuing...
+    - name: Wait for other Homebrew operations to finish
+      ansible.builtin.shell: |
+        if pgrep -f /opt/homebrew/bin/brew >/dev/null 2>&1 || pgrep -f /usr/local/bin/brew >/dev/null 2>&1; then
+          exit 0
+        else
+          exit 1
+        fi
+      register: brew_process_check
+      failed_when: brew_process_check.rc not in [0, 1]
+      retries: 10
+      delay: 15
+      until: brew_process_check.rc != 0
+
+- name: Gather existing Homebrew lock files
+  ansible.builtin.shell: |
+    ls /opt/homebrew/var/homebrew/locks/*.lock /usr/local/var/homebrew/locks/*.lock 2>/dev/null || true
+  register: homebrew_lock_listing
+  changed_when: false
+
+- name: Remove stale Homebrew locks
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ homebrew_lock_listing.stdout_lines }}"
+  when: homebrew_lock_listing.stdout | length > 0
+
 - name: Ensure requested taps are present
   community.general.homebrew_tap:
     name: "{{ item }}"
     state: present
   loop: "{{ homebrew_taps }}"
 
-- name: Install Homebrew formulas
-  community.general.homebrew:
-    name: "{{ item }}"
-    state: present
-    update_homebrew: true
-  loop: "{{ homebrew_packages }}"
+- name: Check for existing Git installation
+  ansible.builtin.command: git --version
+  register: git_check
+  changed_when: false
+  failed_when: false
 
+- name: Check if Xcode Command Line Tools are installed
+  ansible.builtin.command: xcode-select -p
+  register: xcode_cli_check
+  changed_when: false
+  failed_when: false
+  when: git_check.rc != 0
+
+- name: Install Git via Xcode Command Line Tools
+  ansible.builtin.command: xcode-select --install
+  when: git_check.rc != 0 and xcode_cli_check.rc != 0
+  changed_when: true
+
+- name: Check for existing AWS CLI installation
+  ansible.builtin.command: /usr/local/bin/aws --version
+  register: aws_cli_check
+  changed_when: false
+  failed_when: false
+
+- name: Download AWS CLI installer package
+  ansible.builtin.get_url:
+    url: https://awscli.amazonaws.com/AWSCLIV2.pkg
+    dest: /tmp/AWSCLIV2.pkg
+    mode: '0644'
+  when: aws_cli_check.rc != 0
+
+- name: Install AWS CLI v2 from pkg
+  ansible.builtin.command: installer -pkg /tmp/AWSCLIV2.pkg -target /
+  become: true
+  when: aws_cli_check.rc != 0
+
+- name: Verify AWS CLI installation
+  ansible.builtin.command: /usr/local/bin/aws --version
+  register: aws_cli_verify
+  changed_when: false
+
+- name: Ensure npm is available for AWS CDK
+  ansible.builtin.command: npm --version
+  register: npm_check
+  changed_when: false
+  failed_when: false
+
+- name: Abort when npm is missing
+  ansible.builtin.fail:
+    msg: "npm is required to install AWS CDK. Please ensure Node.js/npm is installed."
+  when: npm_check.rc != 0
+
+- name: Install AWS CDK globally via npm
+  ansible.builtin.npm:
+    name: aws-cdk
+    global: true
+    state: latest
+  when: npm_check.rc == 0
+
+- name: Verify AWS CDK installation
+  ansible.builtin.command: cdk --version
+  register: aws_cdk_verify
+  changed_when: false
+  failed_when: aws_cdk_verify.rc != 0
+
+- name: Check for existing uv installation
+  ansible.builtin.command: uv --version
+  register: uv_check
+  changed_when: false
+  failed_when: false
+
+- name: Download uv installer script
+  ansible.builtin.get_url:
+    url: https://astral.sh/uv/install.sh
+    dest: /tmp/install_uv.sh
+    mode: '0755'
+  when: uv_check.rc != 0
+
+- name: Install uv using official script
+  ansible.builtin.shell: /bin/bash /tmp/install_uv.sh
+  args:
+    creates: "{{ ansible_env.HOME }}/.local/bin/uv"
+  environment:
+    UV_INSTALL_DIR: "{{ ansible_env.HOME }}/.local/bin"
+  when: uv_check.rc != 0
+
+- name: Verify uv installation
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+    uv --version
+  register: uv_verify
+  changed_when: false
+  failed_when: uv_verify.rc != 0
+
+- name: Check for existing NVM installation
+  ansible.builtin.stat:
+    path: "{{ ansible_env.HOME }}/.nvm/nvm.sh"
+  register: nvm_install
+
+- name: Download NVM installer script
+  ansible.builtin.get_url:
+    url: "https://raw.githubusercontent.com/nvm-sh/nvm/{{ nvm_version }}/install.sh"
+    dest: /tmp/install_nvm.sh
+    mode: '0755'
+  when: not nvm_install.stat.exists
+
+- name: Install NVM using official script
+  ansible.builtin.shell: /bin/bash /tmp/install_nvm.sh
+  args:
+    creates: "{{ ansible_env.HOME }}/.nvm/nvm.sh"
+  environment:
+    PROFILE: "{{ ansible_env.HOME }}/.bash_profile"
+  when: not nvm_install.stat.exists
+
+- name: Verify NVM installation
+  ansible.builtin.shell: |
+    . "{{ ansible_env.HOME }}/.nvm/nvm.sh" && nvm --version
+  register: nvm_verify
+  changed_when: false
+  failed_when: nvm_verify.rc != 0
+
+- name: Check for existing Bun installation
+  ansible.builtin.command: bun --version
+  register: bun_check
+  changed_when: false
+  failed_when: false
+
+- name: Download Bun installer script
+  ansible.builtin.get_url:
+    url: "{{ bun_install_url }}"
+    dest: /tmp/install_bun.sh
+    mode: '0755'
+  when: bun_check.rc != 0
+
+- name: Install Bun using official script
+  ansible.builtin.shell: /bin/bash /tmp/install_bun.sh
+  args:
+    creates: "{{ ansible_env.HOME }}/.bun/bin/bun"
+  when: bun_check.rc != 0
+
+- name: Verify Bun installation
+  ansible.builtin.command: bun --version
+  register: bun_verify
+  changed_when: false
+  failed_when: bun_verify.rc != 0
+
+- name: Determine Docker Desktop download URL
+  ansible.builtin.set_fact:
+    docker_desktop_url: "{{ docker_desktop_urls[ansible_architecture | default('x86_64')] | default(docker_desktop_urls['x86_64']) }}"
+
+- name: Check for existing Docker Desktop installation
+  ansible.builtin.stat:
+    path: /Applications/Docker.app
+  register: docker_app
+
+- name: Download Docker Desktop disk image
+  ansible.builtin.get_url:
+    url: "{{ docker_desktop_url }}"
+    dest: "{{ docker_dmg_path }}"
+    mode: '0644'
+  when: not docker_app.stat.exists
+
+- name: Ensure Docker Desktop mount point exists
+  ansible.builtin.file:
+    path: "{{ docker_mount_point }}"
+    state: directory
+    mode: '0755'
+  become: true
+  when: not docker_app.stat.exists
+
+- name: Mount Docker Desktop disk image
+  ansible.builtin.command: >
+    hdiutil attach "{{ docker_dmg_path }}" -mountpoint "{{ docker_mount_point }}" -nobrowse -quiet
+  become: true
+  when: not docker_app.stat.exists
+
+- name: Copy Docker Desktop to Applications
+  ansible.builtin.command: >
+    cp -R "{{ docker_mount_point }}/Docker.app" /Applications/
+  become: true
+  when: not docker_app.stat.exists
+
+- name: Unmount Docker Desktop disk image
+  ansible.builtin.command: >
+    hdiutil detach "{{ docker_mount_point }}" -quiet
+  when: not docker_app.stat.exists
+  ignore_errors: true
+
+- name: Remove Docker Desktop mount point
+  ansible.builtin.file:
+    path: "{{ docker_mount_point }}"
+    state: absent
+  become: true
+  when: not docker_app.stat.exists
+
+- name: Remove downloaded Docker Desktop disk image
+  ansible.builtin.file:
+    path: "{{ docker_dmg_path }}"
+    state: absent
+  when: not docker_app.stat.exists
+
+- name: Verify Docker Desktop installation
+  ansible.builtin.stat:
+    path: /Applications/Docker.app
+  register: docker_verify
+  failed_when: not docker_verify.stat.exists
+  changed_when: false
+
+- name: Check for existing lazydocker installation
+  ansible.builtin.command: lazydocker --version
+  register: lazydocker_check
+  changed_when: false
+  failed_when: false
+
+- name: Download lazydocker binary archive
+  ansible.builtin.get_url:
+    url: "{{ lazydocker_binary_url }}"
+    dest: /tmp/lazydocker.tar.gz
+    mode: '0644'
+  when: lazydocker_check.rc != 0
+
+- name: Extract lazydocker binary
+  ansible.builtin.unarchive:
+    src: /tmp/lazydocker.tar.gz
+    dest: /tmp
+    remote_src: true
+  when: lazydocker_check.rc != 0
+
+- name: Install lazydocker binary
+  ansible.builtin.command: >
+    install -m 0755 /tmp/lazydocker /usr/local/bin/lazydocker
+  become: true
+  when: lazydocker_check.rc != 0
+
+- name: Clean up lazydocker temp files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/lazydocker.tar.gz
+    - /tmp/lazydocker
+  when: lazydocker_check.rc != 0
+
+- name: Verify lazydocker installation
+  ansible.builtin.command: lazydocker --version
+  register: lazydocker_verify
+  changed_when: false
+
+- name: Check for existing oh-my-posh installation
+  ansible.builtin.command: oh-my-posh --version
+  register: oh_my_posh_check
+  changed_when: false
+  failed_when: false
+
+- name: Download oh-my-posh installer script
+  ansible.builtin.get_url:
+    url: "{{ oh_my_posh_install_script }}"
+    dest: /tmp/install_oh_my_posh.sh
+    mode: '0755'
+  when: oh_my_posh_check.rc != 0
+
+- name: Install oh-my-posh via official script
+  ansible.builtin.shell: /bin/bash /tmp/install_oh_my_posh.sh -d "{{ oh_my_posh_install_dir }}"
+  become: true
+  when: oh_my_posh_check.rc != 0
+
+- name: Clean up oh-my-posh installer script
+  ansible.builtin.file:
+    path: /tmp/install_oh_my_posh.sh
+    state: absent
+  when: oh_my_posh_check.rc != 0
+
+- name: Verify oh-my-posh installation
+  ansible.builtin.command: oh-my-posh --version
+  register: oh_my_posh_verify
+  changed_when: false
 - name: Install Homebrew casks (best effort)
   community.general.homebrew_cask:
     name: "{{ item }}"
@@ -75,7 +384,7 @@
     weekday: "6"
     job: "softwareupdate -ia"
     user: root
-    become: true
+  become: true
 
 - name: Configure Terminal.app appearance
   ansible.builtin.shell: |

@@ -18,7 +18,6 @@ choco_strict_packages:
   - bun
   - uv
   - lazydocker
-  - btop
   - oh-my-posh
 
 choco_best_effort_packages:

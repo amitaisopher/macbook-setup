@@ -1,0 +1,10 @@
+---
+- name: Announce Homebrew formula install
+  ansible.builtin.debug:
+    msg: "Ensuring Homebrew formula '{{ homebrew_formula }}' is installed..."
+
+- name: Ensure Homebrew formula is installed
+  community.general.homebrew:
+    name: "{{ homebrew_formula }}"
+    state: present
+    update_homebrew: true

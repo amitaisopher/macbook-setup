@@ -7,9 +7,26 @@ log(){
   printf '%s\n' "$1"
 }
 
+ensure_path_prefix(){
+  dir="$1"
+  if [[ -z "$dir" || ! -d "$dir" ]]; then
+    return
+  fi
+
+  case ":$PATH:" in
+    *":$dir:"*) ;;
+    *) export PATH="$dir:$PATH" ;;
+  esac
+}
+
 required_ansible_version="2.14.0"
 
 current_ansible_version(){
+  if ! command -v ansible >/dev/null 2>&1; then
+    echo ""
+    return 0
+  fi
+
   ansible --version 2>/dev/null | head -n1 | awk '{print $2}'
 }
 
@@ -48,22 +65,38 @@ EOF
 }
 
 install_ansible_macos(){
-  if ! command -v brew >/dev/null 2>&1; then
-    log "Installing Homebrew..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    echo 'eval "$($(brew --prefix)/bin/brew shellenv)"' >> "$HOME/.bash_profile"
-    eval "$($(brew --prefix)/bin/brew shellenv)"
+  if ! command -v python3 >/dev/null 2>&1; then
+    log "Python 3 is required on macOS. Please install the Xcode Command Line Tools (xcode-select --install) or Python 3."
+    exit 1
   fi
 
-  installed_version="$(current_ansible_version)"
-  if ansible_meets_requirement "$installed_version" "$required_ansible_version"; then
-    log "Ansible $installed_version already installed; skipping macOS install."
-    return
+  # Mirror mac-dev-playbook instructions: ensure pip's user bin and Homebrew/bin paths are available.
+  user_base="$(python3 -m site --user-base 2>/dev/null || true)"
+  if [[ -n "$user_base" ]]; then
+    user_bin="$user_base/bin"
+    mkdir -p "$user_bin"
+    ensure_path_prefix "$user_bin"
+  fi
+  ensure_path_prefix "/opt/homebrew/bin"
+  ensure_path_prefix "/usr/local/bin"
+
+  if ! python3 -m pip --version >/dev/null 2>&1; then
+    log "pip for Python 3 not detected; installing with ensurepip..."
+    python3 -m ensurepip --upgrade
   fi
 
-  log "Installing/upgrading Ansible with Homebrew..."
-  brew update
-  brew install ansible || brew upgrade ansible
+  log "Upgrading pip for Python 3..."
+  if ! python3 -m pip install --upgrade pip; then
+    log "Retrying pip upgrade with sudo..."
+    sudo python3 -m pip install --upgrade pip
+  fi
+
+  log "Installing/Upgrading Ansible via pip3 (mac-dev-playbook approach)..."
+  python3 -m pip install --user --upgrade ansible
+
+  log "Verifying Ansible installation..."
+  hash -r 2>/dev/null || true
+  ansible --version
 }
 
 install_ansible_linux(){
@@ -107,19 +140,44 @@ log "Installing required Ansible collections..."
 ansible-galaxy collection install -r requirements.yml
 
 # Ensure we prompt for sudo password on Linux when needed
-ansible_args=("$@")
-if [[ "$(uname -s)" == "Linux" && "${EUID:-$(id -u)}" -ne 0 ]]; then
+declare -a ansible_args=()
+if [[ "$#" -gt 0 ]]; then
+  ansible_args=("$@")
+fi
+os_name="$(uname -s)"
+current_uid="${EUID:-$(id -u)}"
+if [[ "$os_name" == "Linux" && "$current_uid" -ne 0 ]]; then
   need_become_pass=true
-  for arg in "${ansible_args[@]}"; do
-    if [[ "$arg" == "--ask-become-pass" || "$arg" == "-K" || "$arg" == "--become-password-file="* ]]; then
-      need_become_pass=false
-      break
-    fi
-  done
+  if (( ${#ansible_args[@]} )); then
+    for arg in "${ansible_args[@]}"; do
+      if [[ "$arg" == "--ask-become-pass" || "$arg" == "-K" || "$arg" == "--become-password-file="* ]]; then
+        need_become_pass=false
+        break
+      fi
+    done
+  fi
   if [[ "$need_become_pass" == true ]]; then
     log "Adding --ask-become-pass (sudo password required for apt installs)."
     ansible_args+=("--ask-become-pass")
   fi
+elif [[ "$os_name" == "Darwin" && "$current_uid" -ne 0 ]]; then
+  need_become_pass=true
+  if (( ${#ansible_args[@]} )); then
+    for arg in "${ansible_args[@]}"; do
+      if [[ "$arg" == "--ask-become-pass" || "$arg" == "-K" || "$arg" == "--become-password-file="* ]]; then
+        need_become_pass=false
+        break
+      fi
+    done
+  fi
+  if [[ "$need_become_pass" == true ]]; then
+    log "Adding --ask-become-pass (sudo password required for macOS pkg installs)."
+    ansible_args+=("--ask-become-pass")
+  fi
 fi
 
-ansible-playbook -i inventory main.yml "${ansible_args[@]}"
+if (( ${#ansible_args[@]} )); then
+  ansible-playbook -i inventory main.yml "${ansible_args[@]}"
+else
+  ansible-playbook -i inventory main.yml
+fi
