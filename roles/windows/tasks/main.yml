@@ -64,6 +64,37 @@
   loop_control:
     index_var: idx
 
+- name: Check npm availability for GitHub Copilot CLI
+  ansible.windows.win_shell: npm --version
+  register: copilot_npm_check
+  changed_when: false
+  failed_when: false
+
+- name: Abort when npm is unavailable for GitHub Copilot CLI
+  ansible.builtin.fail:
+    msg: "GitHub Copilot CLI requires npm (see https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli). Install Node.js/npm and rerun the playbook."
+  when: copilot_npm_check.rc != 0
+
+- name: Check for existing GitHub Copilot CLI installation
+  ansible.windows.win_shell: github-copilot-cli --version
+  register: copilot_cli_check
+  changed_when: false
+  failed_when: false
+
+- name: Install GitHub Copilot CLI via npm
+  ansible.windows.win_shell: npm install -g @github/copilot
+  environment:
+    npm_config_yes: "true"
+  when:
+    - copilot_cli_check.rc != 0
+    - copilot_npm_check.rc == 0
+
+- name: Verify GitHub Copilot CLI installation
+  ansible.windows.win_shell: github-copilot-cli --version
+  register: copilot_cli_verify
+  changed_when: false
+  failed_when: copilot_cli_verify.rc != 0
+
 - name: Check for existing Claude Code installation
   ansible.windows.win_shell: claude --version
   register: claude_check

@@ -382,6 +382,44 @@
   register: omp_install
   failed_when: false
 
+- name: Check npm availability for GitHub Copilot CLI
+  ansible.builtin.command: npm --version
+  register: copilot_npm_check
+  changed_when: false
+  failed_when: false
+
+- name: Abort when npm is unavailable for GitHub Copilot CLI
+  ansible.builtin.fail:
+    msg: "GitHub Copilot CLI requires npm (version 10+ per https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli). Please install Node.js/npm before rerunning the playbook."
+  when: copilot_npm_check.rc != 0
+
+- name: Check for existing GitHub Copilot CLI installation
+  ansible.builtin.command: github-copilot-cli --version
+  register: copilot_cli_check
+  changed_when: false
+  failed_when: false
+
+- name: Install GitHub Copilot CLI via npm
+  ansible.builtin.shell: |
+    npm install -g @github/copilot
+  args:
+    executable: /bin/bash
+  environment:
+    npm_config_yes: "true"
+  when:
+    - copilot_cli_check.rc != 0
+    - copilot_npm_check.rc == 0
+  register: copilot_cli_install
+  failed_when: false
+
+- name: Verify GitHub Copilot CLI installation
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.local/bin:/usr/local/bin:$PATH"
+    github-copilot-cli --version
+  register: copilot_cli_verify
+  changed_when: false
+  failed_when: copilot_cli_verify.rc != 0
+
 - name: Check for existing Claude Code installation
   ansible.builtin.shell: |
     export PATH="{{ ansible_env.HOME }}/.local/bin:/usr/local/bin:$PATH"
@@ -414,12 +452,14 @@
       + (((nvm_install.rc | default(1)) == 0) | ternary(['nvm'], []))
       + (((bun_install.rc | default(1)) == 0) | ternary(['bun'], []))
       + (((omp_install.rc | default(1)) == 0) | ternary(['oh-my-posh'], []))
+      + (((copilot_cli_verify.rc | default(1)) == 0) | ternary(['github-copilot-cli'], []))
       + (((claude_verify.rc | default(1)) == 0) | ternary(['claude'], [])) }}"
     install_failed: "{{ (install_failed | default([]))
       + (((uv_install.rc | default(1)) == 0) | ternary([], ['uv']))
       + (((nvm_install.rc | default(1)) == 0) | ternary([], ['nvm']))
       + (((bun_install.rc | default(1)) == 0) | ternary([], ['bun']))
       + (((omp_install.rc | default(1)) == 0) | ternary([], ['oh-my-posh']))
+      + (((copilot_cli_verify.rc | default(1)) == 0) | ternary([], ['github-copilot-cli']))
       + (((claude_verify.rc | default(1)) == 0) | ternary([], ['claude'])) }}"
 
 - name: Ensure Chrome policies directory exists

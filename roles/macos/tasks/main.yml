@@ -341,6 +341,26 @@
   register: oh_my_posh_verify
   changed_when: false
 
+- name: Check for existing GitHub Copilot CLI installation
+  ansible.builtin.command: github-copilot-cli --version
+  register: copilot_cli_check
+  changed_when: false
+  failed_when: false
+
+- name: Install GitHub Copilot CLI via npm
+  ansible.builtin.command: npm install -g @github/copilot
+  environment:
+    npm_config_yes: "true"
+  when:
+    - copilot_cli_check.rc != 0
+    - (npm_check.rc | default(1)) == 0
+
+- name: Verify GitHub Copilot CLI installation
+  ansible.builtin.command: github-copilot-cli --version
+  register: copilot_cli_verify
+  changed_when: false
+  failed_when: copilot_cli_verify.rc != 0
+
 - name: Check for existing Claude Code installation
   ansible.builtin.shell: |
     export PATH="{{ ansible_env.HOME }}/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
