@@ -11,6 +11,7 @@ Automate the full bootstrap of a development workstation with a single Ansible p
 - **Easy maintenance** – software lists and configuration artifacts sit in predictable paths so you can edit them without reading Ansible internals.
 
 ## Toolchain Overview
+- **Bootstrap CLI (`bootstrap.py`)** is a Typer-based command line experience exposed via `./bootstrap.sh`. It validates prerequisites (Python 3.9+, Typer), can install them automatically on macOS/Linux, supports `--help`, `--dry-run`, and `--log-file` flags, and prints a colorized stage-by-stage summary at the end of each run.
 - **Ansible** orchestrates everything in pull/local mode (`inventory` targets `localhost`).
 - **Homebrew (macOS), apt + Snap (Linux), Chocolatey (Windows)** handle software installation.
 - **VS Code** receives customized settings plus extension installs via CLI.
@@ -33,7 +34,7 @@ requirements.yml               # Ansible collections (community.general, communi
 
 ## Included Software
 All platforms aim to install the following (method varies by OS):
-- Developer tooling: Git, AWS CLI/CDK, Docker Desktop/CLI, lazydocker, btop, uv, nvm, Bun, oh-my-posh.
+- Developer tooling: Git, AWS CLI/CDK, Docker Desktop/CLI, lazydocker, btop, uv, nvm, Bun, oh-my-posh, GitHub Copilot CLI, Google Gemini CLI.
 - IDEs & editors: VS Code (with extensions), Cursor, WindSurf.
 - Browsers: Google Chrome, Firefox, Zen Browser.
 - Communication: Slack, WhatsApp, Discord, Rambox, Bitwarden, Claude Code, Google AntiGravity (placeholder), Google Antigravity is attempted via best-effort cask/Chocolatey install and may require manual handling.
@@ -76,7 +77,29 @@ If the `code` CLI is not yet on `PATH`, the playbook prints a reminder to run �
 ```bash
 ./bootstrap.sh --ask-become-pass
 ```
-The script installs Homebrew/Ansible if missing, installs the required Ansible collections, and runs `ansible-playbook -i inventory main.yml`. Use `-t macos` / `-t common` tags if you want to scope a rerun.
+The Typer CLI automatically:
+
+1. Ensures Python 3.9+ and the `typer` package exist (installing/upgrading them on macOS/Linux when possible).
+2. Installs Ansible if the minimum required version (2.14.0) is missing.
+3. Installs required Ansible collections.
+4. Runs `ansible-playbook -i inventory main.yml` passing through any extra arguments you supply.
+
+Helpful flags:
+
+| Flag | Description |
+| --- | --- |
+| `--dry-run` | Skips destructive actions and appends `--check` to `ansible-playbook` so you can preview changes. |
+| `--log-file bootstrap-log.json` | Writes a JSON execution log containing every stage’s outcome. |
+
+Examples:
+
+```bash
+# Preview what would happen
+./bootstrap.sh --dry-run --tags macos
+
+# Run only the Homebrew role, saving a log for auditing
+./bootstrap.sh --tags macos --log-file logs/latest.json
+```
 
 ### Windows (PowerShell)
 ```powershell
@@ -89,6 +112,7 @@ Set-ExecutionPolicy Bypass -Scope Process -Force
 - Optional/beta apps without official packages (e.g., Google AntiGravity, WindSurf) are installed in a best-effort block. Check the Ansible output for the warning list and update the cask/package names as soon as upstreams publish them.
 - VS Code extensions require the CLI. If skipped, enable the `code` command (macOS: VS Code menu → Install 'code' command in PATH; Windows: reinstall with CLI option) and rerun the `common` role.
 - For Docker on Linux, log out or run `newgrp docker` after the play so group membership takes effect.
+- If the bootstrap CLI reports a Python or Typer dependency issue, follow the actionable message. On macOS/Linux the wrapper usually installs what’s needed automatically; on Windows install Python 3.9+ manually and rerun.
 
 ## Next Steps
 - Add more OS-specific roles (`roles/linux/tasks/yum.yml`, etc.) if you need Fedora/Arch support.
