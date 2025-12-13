@@ -340,6 +340,30 @@
   ansible.builtin.command: oh-my-posh --version
   register: oh_my_posh_verify
   changed_when: false
+
+- name: Check for existing Claude Code installation
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+    claude --version
+  register: claude_check
+  changed_when: false
+  failed_when: false
+
+- name: Install Claude Code via official script
+  ansible.builtin.shell: |
+    curl -fsSL {{ claude_install_script_url }} | bash
+  args:
+    executable: /bin/bash
+  when: claude_check.rc != 0
+
+- name: Verify Claude Code installation
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+    claude --version
+  register: claude_verify
+  changed_when: false
+  failed_when: claude_verify.rc != 0
+
 - name: Install Homebrew casks (best effort)
   community.general.homebrew_cask:
     name: "{{ item }}"

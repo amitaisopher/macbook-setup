@@ -24,7 +24,6 @@ choco_best_effort_packages:
   - cursor
   - windsurf
   - zen-browser
-  - claude
   - google-antigravity
 
 nerd_fonts_release: v3.1.1
@@ -33,3 +32,4 @@ nerd_fonts_to_install:
     archive: MartianMono.zip
   - name: DroidSansMono
     archive: DroidSansMono.zip
+claude_install_cmd_url: https://claude.ai/install.cmd

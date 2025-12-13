@@ -382,18 +382,45 @@
   register: omp_install
   failed_when: false
 
+- name: Check for existing Claude Code installation
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.local/bin:/usr/local/bin:$PATH"
+    claude --version
+  register: claude_check
+  changed_when: false
+  failed_when: false
+
+- name: Install Claude Code CLI (official script)
+  ansible.builtin.shell: |
+    curl -fsSL {{ claude_install_script_url }} | bash
+  args:
+    executable: /bin/bash
+  when: claude_check.rc != 0
+  register: claude_install
+  failed_when: false
+
+- name: Verify Claude Code installation
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.local/bin:/usr/local/bin:$PATH"
+    claude --version
+  register: claude_verify
+  changed_when: false
+  failed_when: false
+
 - name: Track CLI/tool install results
   ansible.builtin.set_fact:
     install_success: "{{ (install_success | default([]))
       + (((uv_install.rc | default(1)) == 0) | ternary(['uv'], []))
       + (((nvm_install.rc | default(1)) == 0) | ternary(['nvm'], []))
       + (((bun_install.rc | default(1)) == 0) | ternary(['bun'], []))
-      + (((omp_install.rc | default(1)) == 0) | ternary(['oh-my-posh'], [])) }}"
+      + (((omp_install.rc | default(1)) == 0) | ternary(['oh-my-posh'], []))
+      + (((claude_verify.rc | default(1)) == 0) | ternary(['claude'], [])) }}"
     install_failed: "{{ (install_failed | default([]))
       + (((uv_install.rc | default(1)) == 0) | ternary([], ['uv']))
       + (((nvm_install.rc | default(1)) == 0) | ternary([], ['nvm']))
       + (((bun_install.rc | default(1)) == 0) | ternary([], ['bun']))
-      + (((omp_install.rc | default(1)) == 0) | ternary([], ['oh-my-posh'])) }}"
+      + (((omp_install.rc | default(1)) == 0) | ternary([], ['oh-my-posh']))
+      + (((claude_verify.rc | default(1)) == 0) | ternary([], ['claude'])) }}"
 
 - name: Ensure Chrome policies directory exists
   ansible.builtin.file:
