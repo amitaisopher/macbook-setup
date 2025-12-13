@@ -393,6 +393,29 @@
     msg: "GitHub Copilot CLI requires npm (version 10+ per https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli). Please install Node.js/npm before rerunning the playbook."
   when: copilot_npm_check.rc != 0
 
+- name: Check Node.js major version for npm-installed tools
+  ansible.builtin.shell: |
+    node --version | sed 's/^v//' | awk -F. '{print $1}'
+  register: node_major_version
+  changed_when: false
+  failed_when: false
+  when: copilot_npm_check.rc == 0
+
+- name: Abort when Node.js version cannot be detected
+  ansible.builtin.fail:
+    msg: "Unable to detect Node.js version. Please ensure Node.js 20+ is installed."
+  when:
+    - copilot_npm_check.rc == 0
+    - node_major_version.rc != 0
+
+- name: Enforce Node.js >= 20 for npm-installed tools
+  ansible.builtin.fail:
+    msg: "Node.js 20+ is required for npm-based tools (GitHub Copilot CLI, Google Gemini CLI). Please upgrade Node.js."
+  when:
+    - copilot_npm_check.rc == 0
+    - node_major_version.rc == 0
+    - (node_major_version.stdout | int) < 20
+
 - name: Check for existing GitHub Copilot CLI installation
   ansible.builtin.command: github-copilot-cli --version
   register: copilot_cli_check
@@ -419,6 +442,37 @@
   register: copilot_cli_verify
   changed_when: false
   failed_when: copilot_cli_verify.rc != 0
+
+- name: Check for existing Google Gemini CLI installation
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.local/bin:/usr/local/bin:$PATH"
+    gemini --version
+  register: gemini_cli_check
+  changed_when: false
+  failed_when: false
+
+- name: Install Google Gemini CLI via npm
+  ansible.builtin.shell: |
+    npm install -g @google/gemini-cli
+  args:
+    executable: /bin/bash
+  environment:
+    npm_config_yes: "true"
+  when:
+    - copilot_npm_check.rc == 0
+    - node_major_version.rc == 0
+    - (node_major_version.stdout | int) >= 20
+    - gemini_cli_check.rc != 0
+  register: gemini_cli_install
+  failed_when: false
+
+- name: Verify Google Gemini CLI installation
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.local/bin:/usr/local/bin:$PATH"
+    gemini --version
+  register: gemini_cli_verify
+  changed_when: false
+  failed_when: gemini_cli_verify.rc != 0
 
 - name: Check for existing Claude Code installation
   ansible.builtin.shell: |
@@ -453,6 +507,7 @@
       + (((bun_install.rc | default(1)) == 0) | ternary(['bun'], []))
       + (((omp_install.rc | default(1)) == 0) | ternary(['oh-my-posh'], []))
       + (((copilot_cli_verify.rc | default(1)) == 0) | ternary(['github-copilot-cli'], []))
+      + (((gemini_cli_verify.rc | default(1)) == 0) | ternary(['google-gemini-cli'], []))
       + (((claude_verify.rc | default(1)) == 0) | ternary(['claude'], [])) }}"
     install_failed: "{{ (install_failed | default([]))
       + (((uv_install.rc | default(1)) == 0) | ternary([], ['uv']))
@@ -460,6 +515,7 @@
       + (((bun_install.rc | default(1)) == 0) | ternary([], ['bun']))
       + (((omp_install.rc | default(1)) == 0) | ternary([], ['oh-my-posh']))
       + (((copilot_cli_verify.rc | default(1)) == 0) | ternary([], ['github-copilot-cli']))
+      + (((gemini_cli_verify.rc | default(1)) == 0) | ternary([], ['google-gemini-cli']))
       + (((claude_verify.rc | default(1)) == 0) | ternary([], ['claude'])) }}"
 
 - name: Ensure Chrome policies directory exists

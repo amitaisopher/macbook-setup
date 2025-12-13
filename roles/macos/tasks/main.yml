@@ -116,6 +116,29 @@
     msg: "npm is required to install AWS CDK. Please ensure Node.js/npm is installed."
   when: npm_check.rc != 0
 
+- name: Check Node.js major version for npm-installed tools
+  ansible.builtin.shell: |
+    node --version | sed 's/^v//' | awk -F. '{print $1}'
+  register: node_major_version
+  changed_when: false
+  failed_when: false
+  when: npm_check.rc == 0
+
+- name: Abort when Node.js version cannot be detected
+  ansible.builtin.fail:
+    msg: "Unable to detect Node.js version. Please ensure Node.js 20+ is installed."
+  when:
+    - npm_check.rc == 0
+    - node_major_version.rc != 0
+
+- name: Enforce Node.js >= 20 for npm-installed tools
+  ansible.builtin.fail:
+    msg: "Node.js 20+ is required for npm-based tools like GitHub Copilot CLI and Google Gemini CLI. Please upgrade Node.js."
+  when:
+    - npm_check.rc == 0
+    - node_major_version.rc == 0
+    - (node_major_version.stdout | int) < 20
+
 - name: Install AWS CDK globally via npm
   ansible.builtin.npm:
     name: aws-cdk
@@ -360,6 +383,28 @@
   register: copilot_cli_verify
   changed_when: false
   failed_when: copilot_cli_verify.rc != 0
+
+- name: Check for existing Google Gemini CLI installation
+  ansible.builtin.command: gemini --version
+  register: gemini_cli_check
+  changed_when: false
+  failed_when: false
+
+- name: Install Google Gemini CLI via npm
+  ansible.builtin.command: npm install -g @google/gemini-cli
+  environment:
+    npm_config_yes: "true"
+  when:
+    - npm_check.rc == 0
+    - node_major_version.rc == 0
+    - (node_major_version.stdout | int) >= 20
+    - gemini_cli_check.rc != 0
+
+- name: Verify Google Gemini CLI installation
+  ansible.builtin.command: gemini --version
+  register: gemini_cli_verify
+  changed_when: false
+  failed_when: gemini_cli_verify.rc != 0
 
 - name: Check for existing Claude Code installation
   ansible.builtin.shell: |

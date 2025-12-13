@@ -75,6 +75,32 @@
     msg: "GitHub Copilot CLI requires npm (see https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli). Install Node.js/npm and rerun the playbook."
   when: copilot_npm_check.rc != 0
 
+- name: Check Node.js major version for npm-installed tools
+  ansible.windows.win_shell: |
+    $version = node --version
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    $major = $version.TrimStart('v').Split('.')[0]
+    Write-Output $major
+  register: node_major_version
+  changed_when: false
+  failed_when: false
+  when: copilot_npm_check.rc == 0
+
+- name: Abort when Node.js version cannot be detected
+  ansible.builtin.fail:
+    msg: "Unable to detect Node.js version. Please ensure Node.js 20+ is installed."
+  when:
+    - copilot_npm_check.rc == 0
+    - node_major_version.rc != 0
+
+- name: Enforce Node.js >= 20 for npm-installed tools
+  ansible.builtin.fail:
+    msg: "Node.js 20+ is required for npm-based tools (GitHub Copilot CLI, Google Gemini CLI)."
+  when:
+    - copilot_npm_check.rc == 0
+    - node_major_version.rc == 0
+    - (node_major_version.stdout | int) < 20
+
 - name: Check for existing GitHub Copilot CLI installation
   ansible.windows.win_shell: github-copilot-cli --version
   register: copilot_cli_check
@@ -94,6 +120,28 @@
   register: copilot_cli_verify
   changed_when: false
   failed_when: copilot_cli_verify.rc != 0
+
+- name: Check for existing Google Gemini CLI installation
+  ansible.windows.win_shell: gemini --version
+  register: gemini_cli_check
+  changed_when: false
+  failed_when: false
+
+- name: Install Google Gemini CLI via npm
+  ansible.windows.win_shell: npm install -g @google/gemini-cli
+  environment:
+    npm_config_yes: "true"
+  when:
+    - copilot_npm_check.rc == 0
+    - node_major_version.rc == 0
+    - (node_major_version.stdout | int) >= 20
+    - gemini_cli_check.rc != 0
+
+- name: Verify Google Gemini CLI installation
+  ansible.windows.win_shell: gemini --version
+  register: gemini_cli_verify
+  changed_when: false
+  failed_when: gemini_cli_verify.rc != 0
 
 - name: Check for existing Claude Code installation
   ansible.windows.win_shell: claude --version
