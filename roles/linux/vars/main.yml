@@ -25,4 +25,3 @@ nerd_fonts_to_install:
     archive: MartianMono.zip
   - name: DroidSansMono
     archive: DroidSansMono.zip
-claude_install_script_url: https://claude.ai/install.sh

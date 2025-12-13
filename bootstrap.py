@@ -17,6 +17,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 import traceback
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -33,6 +34,8 @@ except ModuleNotFoundError as exc:  # pragma: no cover - defensive
 REPO_ROOT = Path(__file__).resolve().parent
 REQUIRED_ANSIBLE_VERSION = "2.14.0"
 USER_BIN = Path.home() / ".local" / "bin"
+MAC_PYTHON_USER_BIN = Path.home() / "Library/Python/3.9/bin"
+LOCAL_TMP_BASENAME = "macbook-setup-ansible"
 
 app = typer.Typer(
     add_completion=False,
@@ -51,6 +54,21 @@ class StageResult:
 
 stage_log: List[StageResult] = []
 DRY_RUN = False
+
+
+def ansible_temp_dir() -> Path:
+    """Ensure a writable temporary directory for Ansible CLI commands."""
+    base = Path(tempfile.gettempdir()) / LOCAL_TMP_BASENAME
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
+def ansible_env() -> dict:
+    env = os.environ.copy()
+    tmp = ansible_temp_dir()
+    env["ANSIBLE_LOCAL_TEMP"] = str(tmp)
+    env["TMPDIR"] = str(tmp)
+    return env
 
 
 def record_stage(stage: str, success: bool, detail: str, error: Optional[str] = None) -> None:
@@ -123,7 +141,11 @@ def get_ansible_version() -> Optional[str]:
         return None
     try:
         result = subprocess.run(
-            ["ansible", "--version"], capture_output=True, text=True, check=True
+            ["ansible", "--version"],
+            capture_output=True,
+            text=True,
+            check=True,
+            env=ansible_env(),
         )
     except subprocess.CalledProcessError:
         return None
@@ -182,8 +204,12 @@ def install_ansible_macos() -> None:
         ["python3", "-m", "site", "--user-base"], capture_output=True, text=True, check=True
     ).stdout.strip()
     if user_base:
-        ensure_path(Path(user_base) / "bin")
-        ensure_path(Path(user_base) / "Library/Python/3.9/bin")
+        user_bin = Path(user_base) / "bin"
+        user_bin.mkdir(parents=True, exist_ok=True)
+        ensure_path(user_bin)
+        legacy_bin = Path.home() / "Library/Python/3.9/bin"
+        legacy_bin.mkdir(parents=True, exist_ok=True)
+        ensure_path(legacy_bin)
 
     run_command(
         "pip3 upgrade",
@@ -238,24 +264,16 @@ def install_ansible_linux() -> None:
 
 def ensure_ansible() -> None:
     current_version = get_ansible_version()
-    if DRY_RUN:
-        if ansible_meets_requirement(current_version):
-            record_stage(
-                "Ansible",
-                True,
-                f"[dry-run] Found Ansible version {current_version or 'unknown'} (no installation).",
-            )
-            return
-        record_stage(
-            "Ansible",
-            False,
-            "[dry-run] Ansible not installed; cannot continue. Install it and rerun.",
-        )
-        raise typer.Exit(1)
     if ansible_meets_requirement(current_version):
         record_stage("Ansible", True, f"Already installed (version {current_version}).")
         return
     system = platform.system()
+    if DRY_RUN:
+        record_stage(
+            "Ansible prerequisites",
+            True,
+            "Dry-run still installs prerequisites when missing.",
+        )
     if system == "Darwin":
         install_ansible_macos()
     elif system == "Linux":
@@ -272,14 +290,12 @@ def ensure_ansible() -> None:
 
 
 def install_collections() -> None:
-    if DRY_RUN:
-        dry_run_skip("Ansible collections", "Would ensure ansible-galaxy requirements.")
-        return
     run_command(
         "Ansible collections",
         ["ansible-galaxy", "collection", "install", "-r", "requirements.yml"],
         "Ensuring required Ansible collections...",
         stream=True,
+        env=ansible_env(),
     )
 
 
@@ -313,6 +329,7 @@ def run_playbook(ansible_args: List[str]) -> None:
         command,
         "Running primary Ansible playbook (dry-run mode)" if DRY_RUN else "Running primary Ansible playbook...",
         stream=True,
+        env=ansible_env(),
     )
 
 
@@ -360,11 +377,12 @@ def main(
         record_stage(
             "Dry-run mode",
             True,
-            "No installers will run; ansible-playbook will execute with --check.",
+            "Prerequisite installers may still run; ansible-playbook executes with --check.",
         )
 
     try:
         ensure_path(USER_BIN)
+        ensure_path(MAC_PYTHON_USER_BIN)
         ensure_ansible()
         install_collections()
         ansible_args = list(ctx.args)

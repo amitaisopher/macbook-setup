@@ -34,4 +34,3 @@ docker_mount_point: /Volumes/DockerDesktop
 lazydocker_binary_url: https://github.com/jesseduffield/lazydocker/releases/latest/download/lazydocker-darwin-amd64.tar.gz
 oh_my_posh_install_script: https://ohmyposh.dev/install.sh
 oh_my_posh_install_dir: /usr/local/bin
-claude_install_script_url: https://claude.ai/install.sh

@@ -108,7 +108,7 @@
   failed_when: false
 
 - name: Install GitHub Copilot CLI via npm
-  ansible.windows.win_shell: npm install -g @github/copilot
+  ansible.windows.win_shell: npm install -g @githubnext/github-copilot-cli
   environment:
     npm_config_yes: "true"
   when:
@@ -150,12 +150,7 @@
   failed_when: false
 
 - name: Install Claude Code via official installer script
-  ansible.windows.win_shell: |
-    $temp = Join-Path $env:TEMP "claude-install.cmd"
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    Invoke-WebRequest -Uri "{{ claude_install_cmd_url }}" -OutFile $temp -UseBasicParsing
-    cmd.exe /c $temp
-    Remove-Item $temp -Force
+  ansible.windows.win_shell: irm https://claude.ai/install.ps1 | iex
   when: claude_check.rc != 0
 
 - name: Verify Claude Code installation

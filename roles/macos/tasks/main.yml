@@ -130,6 +130,15 @@
   when:
     - npm_check.rc == 0
     - node_major_version.rc != 0
+    - not ansible_check_mode
+
+- name: Warn about undetected Node.js version during check mode
+  ansible.builtin.debug:
+    msg: "[check mode] Unable to detect Node.js version. Playbook would abort during a real run."
+  when:
+    - npm_check.rc == 0
+    - node_major_version.rc != 0
+    - ansible_check_mode
 
 - name: Enforce Node.js >= 20 for npm-installed tools
   ansible.builtin.fail:
@@ -138,6 +147,16 @@
     - npm_check.rc == 0
     - node_major_version.rc == 0
     - (node_major_version.stdout | int) < 20
+    - not ansible_check_mode
+
+- name: Warn about insufficient Node.js version during check mode
+  ansible.builtin.debug:
+    msg: "[check mode] Node.js 20+ would be required for npm-based tools. Upgrade Node.js before a real run."
+  when:
+    - npm_check.rc == 0
+    - node_major_version.rc == 0
+    - (node_major_version.stdout | int) < 20
+    - ansible_check_mode
 
 - name: Install AWS CDK globally via npm
   ansible.builtin.npm:
@@ -371,7 +390,7 @@
   failed_when: false
 
 - name: Install GitHub Copilot CLI via npm
-  ansible.builtin.command: npm install -g @github/copilot
+  ansible.builtin.command: npm install -g @githubnext/github-copilot-cli
   environment:
     npm_config_yes: "true"
   when:
@@ -408,7 +427,7 @@
 
 - name: Check for existing Claude Code installation
   ansible.builtin.shell: |
-    export PATH="{{ ansible_env.HOME }}/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+    export PATH="{{ ansible_env.HOME }}/.claude/bin:{{ ansible_env.HOME }}/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
     claude --version
   register: claude_check
   changed_when: false
@@ -416,18 +435,66 @@
 
 - name: Install Claude Code via official script
   ansible.builtin.shell: |
-    curl -fsSL {{ claude_install_script_url }} | bash
+    curl -fsSL https://claude.ai/install.sh | bash
   args:
     executable: /bin/bash
   when: claude_check.rc != 0
+  register: claude_install
+  changed_when: "'Claude CLI installed' in claude_install.stdout"
+
+- name: Detect Claude CLI binary path
+  ansible.builtin.shell: |
+    set -euo pipefail
+    if command -v claude >/dev/null 2>&1; then
+      command -v claude
+      exit 0
+    fi
+    for candidate in "$HOME/.claude/bin/claude" "$HOME/.local/bin/claude" "$HOME/bin/claude" "$HOME/.cargo/bin/claude" "/opt/homebrew/bin/claude" "/usr/local/bin/claude"; do
+      if [ -x "$candidate" ]; then
+        echo "$candidate"
+        exit 0
+      fi
+    done
+    exit 1
+  args:
+    executable: /bin/bash
+  register: claude_cli_path
+  changed_when: false
+  failed_when: false
+
+- name: Warn when Claude CLI binary missing during check mode
+  ansible.builtin.debug:
+    msg: "[check mode] Claude CLI not found; installer would place it under ~/.claude/bin."
+  when:
+    - claude_cli_path.stdout | default("") | length == 0
+    - ansible_check_mode
+
+- name: Warn when Claude CLI binary missing after install
+  ansible.builtin.debug:
+    msg: "Claude CLI not found after running the installer. Check the installer output for details."
+  when:
+    - claude_cli_path.stdout | default("") | length == 0
+    - not ansible_check_mode
+
+- name: Record Claude CLI binary path
+  ansible.builtin.set_fact:
+    claude_cli_binary: "{{ claude_cli_path.stdout }}"
+  when: claude_cli_path.stdout | default("") | length > 0
+
+- name: Mark Claude CLI as missing
+  ansible.builtin.set_fact:
+    claude_cli_missing: true
+  when: claude_cli_path.stdout | default("") | length == 0
 
 - name: Verify Claude Code installation
-  ansible.builtin.shell: |
-    export PATH="{{ ansible_env.HOME }}/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
-    claude --version
+  ansible.builtin.command:
+    argv:
+      - "{{ claude_cli_binary | default('claude') }}"
+      - --version
   register: claude_verify
   changed_when: false
   failed_when: claude_verify.rc != 0
+  when: claude_cli_binary is defined
 
 - name: Install Homebrew casks (best effort)
   community.general.homebrew_cask:
@@ -465,6 +532,20 @@
     job: "/opt/homebrew/bin/brew update && /opt/homebrew/bin/brew upgrade && /opt/homebrew/bin/brew upgrade --cask"
     user: "{{ ansible_user_id }}"
 
+- name: Check privilege escalation for system update scheduling
+  ansible.builtin.command: whoami
+  become: true
+  register: macos_priv_check
+  changed_when: false
+  failed_when: false
+
+- name: Warn when privilege escalation is unavailable for update cron
+  ansible.builtin.debug:
+    msg: "Skipping system update scheduling because sudo/become credentials were not provided."
+  when:
+    - macos_priv_check.rc is defined
+    - macos_priv_check.rc != 0
+
 - name: Schedule weekly MacOS updates (Saturday at 20:00)
   ansible.builtin.cron:
     name: "Weekly MacOS Updates"
@@ -474,6 +555,14 @@
     job: "softwareupdate -ia"
     user: root
   become: true
+  when:
+    - not ansible_check_mode
+    - macos_priv_check.rc == 0
+
+- name: Skip MacOS update cron in check mode
+  ansible.builtin.debug:
+    msg: "[check mode] Would schedule weekly MacOS updates (requires sudo)."
+  when: ansible_check_mode
 
 - name: Configure Terminal.app appearance
   ansible.builtin.shell: |
