@@ -21,10 +21,29 @@ function Ensure-Chocolatey {
     }
 }
 
+function Ensure-Python {
+    if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
+        Ensure-Chocolatey
+        choco install -y python
+    }
+}
+
 function Ensure-Ansible {
     if (-not (Get-Command ansible-playbook -ErrorAction SilentlyContinue)) {
-        Ensure-Chocolatey
-        choco install -y python ansible
+        Ensure-Python
+        Write-Host "Installing Ansible via pip (ansible-core)..." -ForegroundColor Cyan
+        python -m pip install --upgrade pip | Out-Null
+        python -m pip install --upgrade ansible-core | Out-Null
+
+        # Ensure the Python Scripts directory is on PATH for this session
+        $scriptsPath = python - <<'PY'
+import sysconfig
+print(sysconfig.get_path("scripts"))
+PY
+        $scriptsPath = $scriptsPath.Trim()
+        if ($scriptsPath -and ($env:Path -notlike "*$scriptsPath*")) {
+            $env:Path = "$scriptsPath;$env:Path"
+        }
     }
 }
 
