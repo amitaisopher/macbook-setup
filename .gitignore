@@ -1,0 +1,5 @@
+# images and static assets
+assets/
+
+# VS Code
+.vscode/

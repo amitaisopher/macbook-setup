@@ -102,11 +102,15 @@ Examples:
 ```
 
 ### Windows (PowerShell)
+Run PowerShell **as Administrator**, then:
 ```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force
+# Optional: preview what will run
+./bootstrap.ps1 -ExtraArgs "--check"
+
+# Typical run (installs Chocolatey, Python, Ansible, collections, then the playbook)
 ./bootstrap.ps1 -ExtraArgs "--tags" "windows,common"
 ```
-`bootstrap.ps1` ensures Chocolatey + Ansible are available, installs the collections, and invokes the same playbook.
+`bootstrap.ps1` asserts elevation, sets the process execution policy to Bypass, installs Chocolatey/Python/Ansible when missing, fetches the Ansible collections, and invokes the same playbook used on macOS/Linux.
 
 ## Troubleshooting
 - Optional/beta apps without official packages (e.g., Google AntiGravity, WindSurf) are installed in a best-effort block. Check the Ansible output for the warning list and update the cask/package names as soon as upstreams publish them.
