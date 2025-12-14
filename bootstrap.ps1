@@ -6,6 +6,7 @@ Param(
 $ErrorActionPreference = 'Stop'
 $env:PYTHONLEGACYWINDOWSSTDIO = '1'
 $env:PYTHONUTF8 = '1'
+$Global:PyCmd = $null
 
 function Assert-Administrator {
     $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
@@ -23,27 +24,43 @@ function Ensure-Chocolatey {
     }
 }
 
-function Ensure-Python {
-    if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
-        Ensure-Chocolatey
-        choco install -y python
+function Resolve-Python {
+    $candidates = @(
+        'py -3.11',
+        'py -3.12',
+        'python'
+    )
+    foreach ($cmd in $candidates) {
+        try {
+            $out = & $cmd -c "import sys; print(sys.executable)" 2>$null
+            if ($LASTEXITCODE -eq 0 -and $out) {
+                return $cmd
+            }
+        } catch {}
     }
+    return $null
+}
+
+function Ensure-Python {
+    $resolved = Resolve-Python
+    if (-not $resolved) {
+        Ensure-Chocolatey
+        # Prefer a stable Python version (3.11) to avoid prerelease issues
+        choco install -y python311
+        $resolved = Resolve-Python
+    }
+    if (-not $resolved) {
+        Write-Error "Unable to locate or install Python. Please install Python 3.11+ and re-run."
+        exit 1
+    }
+    $Global:PyCmd = $resolved
 }
 
 function Ensure-Ansible {
-    if (-not (Get-Command ansible-playbook -ErrorAction SilentlyContinue)) {
-        Ensure-Python
-        Write-Host "Installing Ansible via pip (ansible-core)..." -ForegroundColor Cyan
-        python -m pip install --upgrade pip | Out-Null
-        python -m pip install --upgrade "ansible>=9.0.0" | Out-Null
-
-        # Ensure the Python Scripts directory is on PATH for this session
-        $scriptsPath = python -c "import sysconfig; print(sysconfig.get_path('scripts'))"
-        $scriptsPath = $scriptsPath.Trim()
-        if ($scriptsPath -and ($env:Path -notlike "*$scriptsPath*")) {
-            $env:Path = "$scriptsPath;$env:Path"
-        }
-    }
+    Ensure-Python
+    Write-Host "Installing Ansible via pip (ansible>=9.0.0) using [$Global:PyCmd]..." -ForegroundColor Cyan
+    & $Global:PyCmd -m pip install --upgrade pip | Out-Null
+    & $Global:PyCmd -m pip install --upgrade "ansible>=9.0.0" | Out-Null
 }
 
 Assert-Administrator
@@ -56,7 +73,7 @@ Set-Location $repoRoot
 Ensure-Ansible
 
 Write-Host "Installing Ansible collections..." -ForegroundColor Cyan
-ansible-galaxy collection install -r requirements.yml
+& $Global:PyCmd -m ansible.galaxy collection install -r requirements.yml
 
 Write-Host "Running playbook..." -ForegroundColor Cyan
-ansible-playbook -i inventory main.yml @ExtraArgs
+& $Global:PyCmd -m ansible.playbook -i inventory main.yml @ExtraArgs
