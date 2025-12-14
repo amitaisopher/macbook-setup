@@ -25,6 +25,12 @@ ensure_user_bin_on_path(){
   export PATH="$HOME/.local/bin:$PATH"
 }
 
+pip_supports_break_system_packages(){
+  local help_output
+  help_output="$("$PYTHON_BIN" -m pip help install 2>/dev/null || true)"
+  [[ "$help_output" == *"--break-system-packages"* ]]
+}
+
 install_homebrew(){
   if command -v brew >/dev/null 2>&1; then
     return
@@ -93,8 +99,12 @@ ensure_typer(){
     log "pip not detected; bootstrapping with ensurepip..."
     "$PYTHON_BIN" -m ensurepip --upgrade
   fi
-  "$PYTHON_BIN" -m pip install --user --upgrade pip
-  "$PYTHON_BIN" -m pip install --user --upgrade typer
+  local -a pip_common_args=(install --user --upgrade)
+  if pip_supports_break_system_packages; then
+    pip_common_args+=("--break-system-packages")
+  fi
+  "$PYTHON_BIN" -m pip "${pip_common_args[@]}" pip
+  "$PYTHON_BIN" -m pip "${pip_common_args[@]}" typer
   hash -r 2>/dev/null || true
   if ! "$PYTHON_BIN" -c "import typer" >/dev/null 2>&1; then
     log "Failed to install typer. Please install it manually (pip install typer) and rerun."
