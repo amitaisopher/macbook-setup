@@ -104,13 +104,13 @@ Examples:
 ### Windows (PowerShell)
 Run PowerShell **as Administrator**, then:
 ```powershell
-# Optional: preview what will run
+# Optional: preview what will run (delegates to WSL)
 ./bootstrap.ps1 -ExtraArgs "--check"
 
-# Typical run (installs Chocolatey, Python, Ansible, collections, then the playbook)
+# Typical run (delegates to WSL and runs the same playbook)
 ./bootstrap.ps1 -ExtraArgs "--tags" "windows,common"
 ```
-`bootstrap.ps1` asserts elevation, sets the process execution policy to Bypass, installs Chocolatey and Python if missing, installs Ansible via `pip install ansible-core`, fetches the Ansible collections, and invokes the same playbook used on macOS/Linux.
+`bootstrap.ps1` asserts elevation, requires WSL (Ubuntu or similar), and delegates to `./bootstrap.sh` inside WSL. Ansible control nodes are not supported on native Windows Python, so WSL is required.
 
 ## Troubleshooting
 - Optional/beta apps without official packages (e.g., Google AntiGravity, WindSurf) are installed in a best-effort block. Check the Ansible output for the warning list and update the cask/package names as soon as upstreams publish them.

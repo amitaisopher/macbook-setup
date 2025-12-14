@@ -4,9 +4,6 @@ Param(
 )
 
 $ErrorActionPreference = 'Stop'
-$env:PYTHONLEGACYWINDOWSSTDIO = '1'
-$env:PYTHONUTF8 = '1'
-$Global:PyCmd = $null
 
 function Assert-Administrator {
     $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
@@ -16,51 +13,56 @@ function Assert-Administrator {
     }
 }
 
-function Ensure-Chocolatey {
-    if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
-        Set-ExecutionPolicy Bypass -Scope Process -Force
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        Invoke-Expression ((New-Object Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-    }
-}
+function Ensure-WSL {
+    $needsReboot = $false
+    $wslCmd = Get-Command wsl.exe -ErrorAction SilentlyContinue
 
-function Resolve-Python {
-    $candidates = @(
-        'py -3.11',
-        'py -3.12',
-        'python'
-    )
-    foreach ($cmd in $candidates) {
+    if (-not $wslCmd) {
+        Write-Host "Enabling Windows Subsystem for Linux and Virtual Machine Platform..." -ForegroundColor Cyan
+        Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux -NoRestart -All | Out-Null
+        Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -NoRestart -All | Out-Null
+        $needsReboot = $true
+    }
+
+    if (-not $needsReboot) {
         try {
-            $out = & $cmd -c "import sys; print(sys.executable)" 2>$null
-            if ($LASTEXITCODE -eq 0 -and $out) {
-                return $cmd
+            $distroList = & wsl.exe -l --quiet 2>$null
+        } catch {
+            $distroList = $null
+        }
+
+        if (-not $distroList) {
+            Write-Host "Installing Ubuntu distro for WSL..." -ForegroundColor Cyan
+            & wsl.exe --install -d Ubuntu
+            if ($LASTEXITCODE -ne 0) {
+                Write-Error "WSL installation failed. Please install WSL/Ubuntu from the Microsoft Store and rerun."
+                exit 1
             }
-        } catch {}
+            $needsReboot = $true
+        }
     }
-    return $null
+
+    if ($needsReboot) {
+        Write-Host "WSL components installed. Please reboot, complete the initial Ubuntu setup if prompted, then rerun bootstrap.ps1." -ForegroundColor Yellow
+        exit 0
+    }
 }
 
-function Ensure-Python {
-    $resolved = Resolve-Python
-    if (-not $resolved) {
-        Ensure-Chocolatey
-        # Prefer a stable Python version (3.11) to avoid prerelease issues
-        choco install -y python311
-        $resolved = Resolve-Python
-    }
-    if (-not $resolved) {
-        Write-Error "Unable to locate or install Python. Please install Python 3.11+ and re-run."
+function Invoke-InWSL {
+    param(
+        [string]$RepoRoot,
+        [string[]]$Args
+    )
+
+    $wslPath = wsl.exe wslpath -a "$RepoRoot"
+    if ($LASTEXITCODE -ne 0 -or -not $wslPath) {
+        Write-Error "Failed to resolve WSL path for $RepoRoot. Launch WSL once to complete distro setup, then rerun this script."
         exit 1
     }
-    $Global:PyCmd = $resolved
-}
-
-function Ensure-Ansible {
-    Ensure-Python
-    Write-Host "Installing Ansible via pip (ansible>=9.0.0) using [$Global:PyCmd]..." -ForegroundColor Cyan
-    & $Global:PyCmd -m pip install --upgrade pip | Out-Null
-    & $Global:PyCmd -m pip install --upgrade "ansible>=9.0.0" | Out-Null
+    $joinedArgs = $Args -join ' '
+    $cmd = "cd '$wslPath' && ./bootstrap.sh $joinedArgs"
+    Write-Host "Delegating to WSL: $cmd" -ForegroundColor Cyan
+    wsl.exe -- bash -lc "$cmd"
 }
 
 Assert-Administrator
@@ -70,10 +72,5 @@ $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 try { Unblock-File -Path $MyInvocation.MyCommand.Path -ErrorAction SilentlyContinue } catch {}
 Set-Location $repoRoot
 
-Ensure-Ansible
-
-Write-Host "Installing Ansible collections..." -ForegroundColor Cyan
-& $Global:PyCmd -m ansible.galaxy collection install -r requirements.yml
-
-Write-Host "Running playbook..." -ForegroundColor Cyan
-& $Global:PyCmd -m ansible.playbook -i inventory main.yml @ExtraArgs
+Ensure-WSL
+Invoke-InWSL -RepoRoot $repoRoot -Args $ExtraArgs
