@@ -5,6 +5,7 @@ Param(
 
 $ErrorActionPreference = 'Stop'
 $env:PYTHONLEGACYWINDOWSSTDIO = '1'
+$env:PYTHONUTF8 = '1'
 
 function Assert-Administrator {
     $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
@@ -34,7 +35,7 @@ function Ensure-Ansible {
         Ensure-Python
         Write-Host "Installing Ansible via pip (ansible-core)..." -ForegroundColor Cyan
         python -m pip install --upgrade pip | Out-Null
-        python -m pip install --upgrade "ansible-core>=2.14,<2.15" | Out-Null
+        python -m pip install --upgrade "ansible>=9.0.0" | Out-Null
 
         # Ensure the Python Scripts directory is on PATH for this session
         $scriptsPath = python -c "import sysconfig; print(sysconfig.get_path('scripts'))"
