@@ -4,6 +4,7 @@ Param(
 )
 
 $ErrorActionPreference = 'Stop'
+$env:PYTHONLEGACYWINDOWSSTDIO = '1'
 
 function Assert-Administrator {
     $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
@@ -33,13 +34,10 @@ function Ensure-Ansible {
         Ensure-Python
         Write-Host "Installing Ansible via pip (ansible-core)..." -ForegroundColor Cyan
         python -m pip install --upgrade pip | Out-Null
-        python -m pip install --upgrade ansible-core | Out-Null
+        python -m pip install --upgrade "ansible-core>=2.14,<2.15" | Out-Null
 
         # Ensure the Python Scripts directory is on PATH for this session
-        $scriptsPath = python - <<'PY'
-import sysconfig
-print(sysconfig.get_path("scripts"))
-PY
+        $scriptsPath = python -c "import sysconfig; print(sysconfig.get_path('scripts'))"
         $scriptsPath = $scriptsPath.Trim()
         if ($scriptsPath -and ($env:Path -notlike "*$scriptsPath*")) {
             $env:Path = "$scriptsPath;$env:Path"
@@ -51,6 +49,7 @@ Assert-Administrator
 Set-ExecutionPolicy Bypass -Scope Process -Force
 
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+try { Unblock-File -Path $MyInvocation.MyCommand.Path -ErrorAction SilentlyContinue } catch {}
 Set-Location $repoRoot
 
 Ensure-Ansible
