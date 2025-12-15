@@ -49,4 +49,34 @@ foreach ($key in $consoleKeys) {
     Set-ItemProperty -Path $key -Name WindowAlpha -Type DWord -Value 229
 }
 
+Write-Host "Updating Windows Terminal profiles for PowerShell..." -ForegroundColor Cyan
+$wtPaths = @(
+    Join-Path $env:LOCALAPPDATA "Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json",
+    Join-Path $env:LOCALAPPDATA "Packages\Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe\LocalState\settings.json",
+    Join-Path $env:LOCALAPPDATA "Microsoft\Windows Terminal\settings.json"
+)
+
+foreach ($path in $wtPaths) {
+    if (-not (Test-Path $path)) { continue }
+    try {
+        $json = Get-Content -Raw -Path $path | ConvertFrom-Json
+        if (-not $json.profiles) { continue }
+        $changed = $false
+        foreach ($p in $json.profiles.list) {
+            if ($p.name -notmatch 'PowerShell') { continue }
+            $p.fontFace = $fontName
+            $p.fontSize = 14
+            $p.useAcrylic = $true
+            $p.opacity = 90
+            $changed = $true
+        }
+        if ($changed) {
+            $json | ConvertTo-Json -Depth 10 | Set-Content -Path $path -Encoding UTF8
+            Write-Host "Updated Windows Terminal settings at $path" -ForegroundColor DarkGray
+        }
+    } catch {
+        Write-Warning "Could not update Windows Terminal settings at $path: $_"
+    }
+}
+
 Write-Host "Nerd font install and console configuration completed." -ForegroundColor Green
