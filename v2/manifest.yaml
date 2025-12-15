@@ -2,7 +2,7 @@ tools:
   git:
     version: latest
     win:
-      winget: "Git.Git"
+      choco: "git"
     mac:
       brew: "git"
     linux:
@@ -11,7 +11,7 @@ tools:
   vscode:
     version: latest
     win:
-      winget: "Microsoft.VisualStudioCode"
+      choco: "vscode"
     mac:
       brew_cask: "visual-studio-code"
     linux:
@@ -20,7 +20,7 @@ tools:
   docker:
     version: latest
     win:
-      winget: "Docker.DockerDesktop"
+      choco: "docker-desktop"
     mac:
       brew_cask: "docker"
     linux:
@@ -33,15 +33,42 @@ tools:
     win:
       script: "scripts/windows/install-nerd-fonts.ps1"
     mac:
-      brew: "font-hack-nerd-font"
+      script: "scripts/macos/install-nerd-fonts.sh"
     linux:
       script: "scripts/linux/install-nerd-fonts.sh"
 
   cursor:
     version: latest
     win:
-      winget: "Cursor.Cursor"
+      choco: "cursoride"
     mac:
       brew_cask: "cursor"
     linux:
       script: "scripts/linux/install-cursor.sh"
+
+  oh_my_posh:
+    version: latest
+    win:
+      choco: "oh-my-posh"
+    mac:
+      script: "scripts/macos/install-oh-my-posh.sh"
+    linux:
+      script: "scripts/linux/install-oh-my-posh.sh"
+
+  bitwarden:
+    version: latest
+    win:
+      choco: "bitwarden"
+    mac:
+      brew_cask: "bitwarden"
+    linux:
+      apt: "bitwarden"
+
+  zoom:
+    version: latest
+    win:
+      choco: "zoom"
+    mac:
+      brew_cask: "zoom"
+    linux:
+      script: "scripts/linux/install-zoom.sh"

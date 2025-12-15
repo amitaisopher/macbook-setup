@@ -15,9 +15,8 @@ function Ensure-Admin {
 }
 
 function Ensure-Winget {
-    if (Get-Command winget -ErrorAction SilentlyContinue) { return }
-    Write-Warning "winget not found. Install App Installer from the Microsoft Store and rerun."
-    exit 1
+    if (Get-Command winget -ErrorAction SilentlyContinue) { return $true }
+    return $false
 }
 
 function Ensure-Choco {
@@ -55,7 +54,6 @@ function Is-InstalledChoco {
 
 function Invoke-Manifest {
     Ensure-Admin
-    Ensure-Winget
     Ensure-Choco
     Ensure-YamlSupport
 
@@ -78,17 +76,19 @@ function Invoke-Manifest {
 
         Write-Host "Installing $toolName..." -ForegroundColor Cyan
         try {
-            if ($winSpec.winget) {
-                if (Is-InstalledWinget -Id $winSpec.winget) {
-                    Write-Host "$toolName already installed (winget id: $winSpec.winget); skipping." -ForegroundColor DarkGray
-                } else {
-                    winget install --id $winSpec.winget --accept-package-agreements --accept-source-agreements --silent
-                }
-            } elseif ($winSpec.choco) {
+            if ($winSpec.choco) {
                 if (Is-InstalledChoco -Pkg $winSpec.choco) {
                     Write-Host "$toolName already installed (choco pkg: $winSpec.choco); skipping." -ForegroundColor DarkGray
                 } else {
                     choco install -y $winSpec.choco
+                }
+            } elseif ($winSpec.winget) {
+                if (-not (Ensure-Winget)) {
+                    Write-Warning "winget not available; cannot install $toolName via winget."
+                } elseif (Is-InstalledWinget -Id $winSpec.winget) {
+                    Write-Host "$toolName already installed (winget id: $winSpec.winget); skipping." -ForegroundColor DarkGray
+                } else {
+                    winget install --id $winSpec.winget --accept-package-agreements --accept-source-agreements --silent
                 }
             } elseif ($winSpec.script) {
                 $scriptPath = Join-Path $RepoRoot $winSpec.script
