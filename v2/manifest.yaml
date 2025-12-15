@@ -1,0 +1,47 @@
+tools:
+  git:
+    version: latest
+    win:
+      winget: "Git.Git"
+    mac:
+      brew: "git"
+    linux:
+      apt: "git"
+
+  vscode:
+    version: latest
+    win:
+      winget: "Microsoft.VisualStudioCode"
+    mac:
+      brew_cask: "visual-studio-code"
+    linux:
+      apt: "code"
+
+  docker:
+    version: latest
+    win:
+      winget: "Docker.DockerDesktop"
+    mac:
+      brew_cask: "docker"
+    linux:
+      apt: "docker.io"
+      post:
+        - "scripts/linux/post/docker-group.sh"
+
+  nerd_fonts:
+    version: latest
+    win:
+      script: "scripts/windows/install-nerd-fonts.ps1"
+    mac:
+      brew: "font-hack-nerd-font"
+    linux:
+      script: "scripts/linux/install-nerd-fonts.sh"
+
+  cursor:
+    version: latest
+    win:
+      winget: "Cursor.Cursor"
+    mac:
+      brew_cask: "cursor"
+    linux:
+      script: "scripts/linux/install-cursor.sh"
