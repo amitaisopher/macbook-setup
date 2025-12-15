@@ -25,6 +25,7 @@ function Ensure-WSL {
     }
 
     if (-not $needsReboot) {
+        $distroList = $null
         try {
             $distroList = & wsl.exe -l --quiet 2>$null
         } catch {
@@ -35,7 +36,9 @@ function Ensure-WSL {
             Write-Host "Installing Ubuntu distro for WSL..." -ForegroundColor Cyan
             & wsl.exe --install -d Ubuntu
             if ($LASTEXITCODE -ne 0) {
-                Write-Error "WSL installation failed. Please install WSL/Ubuntu from the Microsoft Store and rerun."
+                Write-Warning "WSL distro install failed. Error code: $LASTEXITCODE. This often means virtualization/Hyper-V is disabled (HCS_E_HYPERV_NOT_INSTALLED) or WSL2 isn't supported by firmware."
+                Write-Warning "Please ensure: (1) 'Virtual Machine Platform' and 'Windows Subsystem for Linux' optional features are enabled, and (2) virtualization is turned on in BIOS/UEFI."
+                Write-Warning "If issues persist, install Ubuntu manually from the Microsoft Store, reboot, launch it once to finish setup, then rerun bootstrap.ps1."
                 exit 1
             }
             $needsReboot = $true

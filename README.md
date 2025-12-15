@@ -110,7 +110,19 @@ Run PowerShell **as Administrator**, then:
 # Typical run (delegates to WSL and runs the same playbook)
 ./bootstrap.ps1 -ExtraArgs "--tags" "windows,common"
 ```
-`bootstrap.ps1` asserts elevation, requires WSL (Ubuntu or similar), and delegates to `./bootstrap.sh` inside WSL. Ansible control nodes are not supported on native Windows Python, so WSL is required.
+`bootstrap.ps1` asserts elevation, enables WSL + Virtual Machine Platform when missing, installs Ubuntu if no distro is present, then delegates to `./bootstrap.sh` inside WSL. Native Ansible control on Windows Python is not supported (see the official Ansible Windows guide), so WSL is required. Reboot after first-time WSL enablement/installation, complete the Ubuntu first-run setup, then rerun the script.
+
+**Windows prerequisites (standalone)**
+- Virtualization must be enabled: check Task Manager → Performance → CPU → “Virtualization” (should be Enabled). If disabled, turn on Intel VT-x/AMD-V in BIOS/UEFI and ensure “Virtual Machine Platform” + “Windows Subsystem for Linux” optional features are enabled.
+- Install WSL + Ubuntu: either let `bootstrap.ps1` enable/install them, or manually run `wsl --install -d Ubuntu`, reboot, launch Ubuntu once to finish setup, then rerun `bootstrap.ps1`.
+- Run playbooks from within WSL: `bootstrap.ps1` will call `./bootstrap.sh` inside Ubuntu to configure the local Windows host via Ansible.
+
+**Using a remote control plane for Windows**
+- Ansible must run on a POSIX control node (Linux/macOS/WSL). From another machine, clone this repo, ensure Ansible/collections are installed, and run:
+  ```bash
+  ansible-playbook -i inventory --tags "windows,common" main.yml
+  ```
+  Configure WinRM/hosts as needed per the official Ansible Windows guide. The Windows machine is the managed node; the control node remains Linux/macOS/WSL.
 
 ## Troubleshooting
 - Optional/beta apps without official packages (e.g., Google AntiGravity, WindSurf) are installed in a best-effort block. Check the Ansible output for the warning list and update the cask/package names as soon as upstreams publish them.
