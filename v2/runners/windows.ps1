@@ -35,6 +35,24 @@ function Ensure-YamlSupport {
     Install-Module -Name powershell-yaml -Scope CurrentUser -Force
 }
 
+function Is-InstalledWinget {
+    param([string]$Id)
+    if (-not $Id) { return $false }
+    try {
+        $null = winget list --id $Id --accept-source-agreements 2>$null
+        return ($LASTEXITCODE -eq 0)
+    } catch { return $false }
+}
+
+function Is-InstalledChoco {
+    param([string]$Pkg)
+    if (-not $Pkg) { return $false }
+    try {
+        $null = choco list --local-only --exact $Pkg 2>$null
+        return ($LASTEXITCODE -eq 0)
+    } catch { return $false }
+}
+
 function Invoke-Manifest {
     Ensure-Admin
     Ensure-Winget
@@ -61,9 +79,17 @@ function Invoke-Manifest {
         Write-Host "Installing $toolName..." -ForegroundColor Cyan
         try {
             if ($winSpec.winget) {
-                winget install --id $winSpec.winget --accept-package-agreements --accept-source-agreements --silent
+                if (Is-InstalledWinget -Id $winSpec.winget) {
+                    Write-Host "$toolName already installed (winget id: $winSpec.winget); skipping." -ForegroundColor DarkGray
+                } else {
+                    winget install --id $winSpec.winget --accept-package-agreements --accept-source-agreements --silent
+                }
             } elseif ($winSpec.choco) {
-                choco install -y $winSpec.choco
+                if (Is-InstalledChoco -Pkg $winSpec.choco) {
+                    Write-Host "$toolName already installed (choco pkg: $winSpec.choco); skipping." -ForegroundColor DarkGray
+                } else {
+                    choco install -y $winSpec.choco
+                }
             } elseif ($winSpec.script) {
                 $scriptPath = Join-Path $RepoRoot $winSpec.script
                 if (-not (Test-Path $scriptPath)) { throw "Script not found: $scriptPath" }
