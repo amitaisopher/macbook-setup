@@ -80,7 +80,11 @@ function Invoke-Manifest {
                 if (Is-InstalledChoco -Pkg $winSpec.choco) {
                     Write-Host "$toolName already installed (choco pkg: $winSpec.choco); skipping." -ForegroundColor DarkGray
                 } else {
-                    choco install -y $winSpec.choco
+                    $args = @("install","-y",$winSpec.choco)
+                    if ($winSpec.choco -ieq "googlechrome") {
+                        $args += "--ignore-checksums"
+                    }
+                    choco @args
                 }
             } elseif ($winSpec.winget) {
                 if (-not (Ensure-Winget)) {

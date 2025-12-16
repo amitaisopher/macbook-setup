@@ -64,6 +64,15 @@ tools:
     linux:
       apt: "bitwarden"
 
+  google_chrome:
+    version: latest
+    win:
+      choco: "googlechrome"
+    mac:
+      brew_cask: "google-chrome"
+    linux:
+      script: "scripts/linux/install-chrome.sh"
+
   zoom:
     version: latest
     win:
