@@ -1,10 +1,13 @@
 [CmdletBinding()]
 param()
+
 $ErrorActionPreference = 'Stop'
 
-$fontPkg = "nerd-fonts-droidsansmono"
-$fontName = "DroidSansMono Nerd Font"
-$fontSizeHex = 0x000E0000  # 14px height
+$fontPkg     = "nerd-fonts-droidsansmono"
+$fontName    = "DroidSansMono Nerd Font"     # Console (legacy) + Terminal (if available)
+$terminalFontFace = "DroidSansMono Nerd Font" # Windows Terminal font face
+$terminalFontSize = 14
+$fontSizeHex = 0x000E0000  # 14px height (console uses this packed DWORD format)
 
 function Ensure-Choco {
     if (Get-Command choco -ErrorAction SilentlyContinue) { return }
@@ -25,7 +28,7 @@ function Ensure-Font {
 
 function Configure-ConsoleFont {
     param(
-        [string]$KeyPath
+        [Parameter(Mandatory)][string]$KeyPath
     )
     if (-not (Test-Path $KeyPath)) {
         New-Item -Path $KeyPath -Force | Out-Null
@@ -34,14 +37,27 @@ function Configure-ConsoleFont {
     Set-ItemProperty -Path $KeyPath -Name FontSize -Type DWord -Value $fontSizeHex
 }
 
+# PowerShell 5.1-safe: adds a property if missing (so later assignments won't throw)
+function Ensure-JsonProp {
+    param(
+        [Parameter(Mandatory)] $Obj,
+        [Parameter(Mandatory)][string] $Name,
+        [Parameter(Mandatory)] $Value
+    )
+
+    if (-not $Obj.PSObject.Properties.Match($Name)) {
+        $Obj | Add-Member -MemberType NoteProperty -Name $Name -Value $Value -Force
+    }
+}
+
 Ensure-Choco
 Ensure-Font
 
-Write-Host "Configuring console fonts to $fontName size 14 and opacity 90%..." -ForegroundColor Cyan
+Write-Host "Configuring legacy console fonts to '$fontName' (size 14) and opacity 90%..." -ForegroundColor Cyan
 $consoleKeys = @(
-    "HKCU:\Console",
+    "HKCU:\Console\Windows PowerShell",
     "HKCU:\Console\%SystemRoot%_system32_windowsPowerShell_v1.0_powershell.exe",
-    "HKCU:\Console\Windows PowerShell"
+    "HKCU:\Console"
 )
 foreach ($key in $consoleKeys) {
     Configure-ConsoleFont -KeyPath $key
@@ -49,33 +65,32 @@ foreach ($key in $consoleKeys) {
     Set-ItemProperty -Path $key -Name WindowAlpha -Type DWord -Value 229
 }
 
-Write-Host "Updating Windows Terminal profiles for PowerShell..." -ForegroundColor Cyan
-$wtPaths = @(
-    Join-Path $env:LOCALAPPDATA "Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json",
-    Join-Path $env:LOCALAPPDATA "Packages\Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe\LocalState\settings.json",
-    Join-Path $env:LOCALAPPDATA "Microsoft\Windows Terminal\settings.json"
-)
+Write-Host "Updating Windows Terminal defaults to '$terminalFontFace' size $terminalFontSize..." -ForegroundColor Cyan
 
-foreach ($path in $wtPaths) {
-    if (-not (Test-Path $path)) { continue }
+$path = Join-Path $env:LOCALAPPDATA "Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
+if (-not (Test-Path $path)) {
+    Write-Warning "Windows Terminal settings.json not found at $path. Open Terminal → Settings → Open JSON and confirm it's installed."
+}
+else {
     try {
-        $json = Get-Content -Raw -Path $path | ConvertFrom-Json
-        if (-not $json.profiles) { continue }
-        $changed = $false
-        foreach ($p in $json.profiles.list) {
-            if ($p.name -notmatch 'PowerShell') { continue }
-            $p.fontFace = $fontName
-            $p.fontSize = 14
-            $p.useAcrylic = $true
-            $p.opacity = 90
-            $changed = $true
-        }
-        if ($changed) {
-            $json | ConvertTo-Json -Depth 10 | Set-Content -Path $path -Encoding UTF8
-            Write-Host "Updated Windows Terminal settings at $path" -ForegroundColor DarkGray
-        }
-    } catch {
-        Write-Warning "Could not update Windows Terminal settings at $path: $_"
+        # IMPORTANT: Close Windows Terminal before running this, or it may overwrite on exit.
+        $json = Get-Content $path -Raw | ConvertFrom-Json
+
+        # Ensure nested objects exist (PowerShell 5.1-friendly)
+        Ensure-JsonProp $json 'profiles' ([pscustomobject]@{})
+        Ensure-JsonProp $json.profiles 'defaults' ([pscustomobject]@{})
+        Ensure-JsonProp $json.profiles.defaults 'font' ([pscustomobject]@{})
+
+        # Apply changes
+        $json.profiles.defaults.font.face = $terminalFontFace
+        $json.profiles.defaults.font.size = $terminalFontSize
+
+        # Write back
+        $json | ConvertTo-Json -Depth 50 | Set-Content $path -Encoding UTF8
+        Write-Host "Updated Windows Terminal settings at $path" -ForegroundColor DarkGray
+    }
+    catch {
+        Write-Warning ("Could not update Windows Terminal settings at {0}: {1}" -f $path, $_.Exception.Message)
     }
 }
 
