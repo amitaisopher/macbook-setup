@@ -72,3 +72,30 @@ tools:
       brew_cask: "zoom"
     linux:
       script: "scripts/linux/install-zoom.sh"
+
+  uv:
+    version: latest
+    win:
+      script: "scripts/windows/install-uv.ps1"
+    mac:
+      script: "scripts/macos/install-uv.sh"
+    linux:
+      script: "scripts/linux/install-uv.sh"
+
+  fnm:
+    version: latest
+    win:
+      choco: "fnm"
+    mac:
+      script: "scripts/macos/install-fnm.sh"
+    linux:
+      script: "scripts/linux/install-fnm.sh"
+
+  chrome_extensions:
+    version: latest
+    win:
+      script: "scripts/windows/install-chrome-extensions.ps1"
+    mac:
+      script: "scripts/macos/install-chrome-extensions.sh"
+    linux:
+      script: "scripts/linux/install-chrome-extensions.sh"
