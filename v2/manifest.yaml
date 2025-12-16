@@ -108,3 +108,48 @@ tools:
       script: "scripts/macos/install-chrome-extensions.sh"
     linux:
       script: "scripts/linux/install-chrome-extensions.sh"
+
+  gemini_cli:
+    version: latest
+    win:
+      script: "scripts/windows/install-gemini-cli.ps1"
+    mac:
+      script: "scripts/macos/install-gemini-cli.sh"
+    linux:
+      script: "scripts/linux/install-gemini-cli.sh"
+
+  claude_code:
+    version: latest
+    win:
+      script: "scripts/windows/install-claude-code.ps1"
+    mac:
+      script: "scripts/macos/install-claude-code.sh"
+    linux:
+      script: "scripts/linux/install-claude-code.sh"
+
+  antigravity:
+    version: latest
+    win:
+      script: "scripts/windows/install-antigravity.ps1"
+    mac:
+      script: "scripts/macos/install-antigravity.sh"
+    linux:
+      script: "scripts/linux/install-antigravity.sh"
+
+  copilot_cli:
+    version: latest
+    win:
+      script: "scripts/windows/install-copilot-cli.ps1"
+    mac:
+      script: "scripts/macos/install-copilot-cli.sh"
+    linux:
+      script: "scripts/linux/install-copilot-cli.sh"
+
+  ollama:
+    version: latest
+    win:
+      winget: "Ollama.Ollama"
+    mac:
+      script: "scripts/macos/install-ollama.sh"
+    linux:
+      script: "scripts/linux/install-ollama.sh"
