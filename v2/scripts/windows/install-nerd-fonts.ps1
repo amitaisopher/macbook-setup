@@ -1,5 +1,13 @@
 [CmdletBinding()]
-param()
+param(
+    [ValidateSet("Regular", "Mono")]
+    [string]$FontVariant = "Regular",
+    [string]$BackgroundColor = "#4B0082",
+    [ValidateRange(0, 100)]
+    [int]$Opacity = 90,
+    [string]$ColorScheme = "Dark+",
+    [bool]$EnableAcrylic = $false
+)
 
 $ErrorActionPreference = 'Stop'
 
@@ -53,45 +61,4 @@ function Ensure-JsonProp {
 Ensure-Choco
 Ensure-Font
 
-Write-Host "Configuring legacy console fonts to '$fontName' (size 14) and opacity 90%..." -ForegroundColor Cyan
-$consoleKeys = @(
-    "HKCU:\Console\Windows PowerShell",
-    "HKCU:\Console\%SystemRoot%_system32_windowsPowerShell_v1.0_powershell.exe",
-    "HKCU:\Console"
-)
-foreach ($key in $consoleKeys) {
-    Configure-ConsoleFont -KeyPath $key
-    # WindowAlpha is 0-255; 90% ~ 229
-    Set-ItemProperty -Path $key -Name WindowAlpha -Type DWord -Value 229
-}
-
-Write-Host "Updating Windows Terminal defaults to '$terminalFontFace' size $terminalFontSize..." -ForegroundColor Cyan
-
-$path = Join-Path $env:LOCALAPPDATA "Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
-if (-not (Test-Path $path)) {
-    Write-Warning "Windows Terminal settings.json not found at $path. Open Terminal → Settings → Open JSON and confirm it's installed."
-}
-else {
-    try {
-        # IMPORTANT: Close Windows Terminal before running this, or it may overwrite on exit.
-        $json = Get-Content $path -Raw | ConvertFrom-Json
-
-        # Ensure nested objects exist (PowerShell 5.1-friendly)
-        Ensure-JsonProp $json 'profiles' ([pscustomobject]@{})
-        Ensure-JsonProp $json.profiles 'defaults' ([pscustomobject]@{})
-        Ensure-JsonProp $json.profiles.defaults 'font' ([pscustomobject]@{})
-
-        # Apply changes
-        $json.profiles.defaults.font.face = $terminalFontFace
-        $json.profiles.defaults.font.size = $terminalFontSize
-
-        # Write back
-        $json | ConvertTo-Json -Depth 50 | Set-Content $path -Encoding UTF8
-        Write-Host "Updated Windows Terminal settings at $path" -ForegroundColor DarkGray
-    }
-    catch {
-        Write-Warning ("Could not update Windows Terminal settings at {0}: {1}" -f $path, $_.Exception.Message)
-    }
-}
-
-Write-Host "Nerd font install and console configuration completed." -ForegroundColor Green
+Write-Host "Nerd font installation completed (DroidSansMono)." -ForegroundColor Green

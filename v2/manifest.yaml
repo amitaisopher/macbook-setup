@@ -37,6 +37,11 @@ tools:
     linux:
       script: "scripts/linux/install-nerd-fonts.sh"
 
+  terminal_appearance:
+    version: latest
+    win:
+      script: "scripts/windows/configure-terminal.ps1"
+
   cursor:
     version: latest
     win:
