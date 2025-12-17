@@ -47,21 +47,23 @@ Keys per OS:
 - `winget`, `choco`, `brew`, `brew_cask`, `apt`, `script`
 - Optional `post`: array of scripts to run after install (e.g., docker group).
 
-## How Windows Runner Works
-1) Requires admin PowerShell, winget, and powershell-yaml (auto-installs powershell-yaml; choco as fallback).
-2) Parses `manifest.yaml`.
-3) For each tool with a `win` mapping:
-   - Prefer `winget install --id ... --silent`  
-   - Else `choco install -y ...`  
-   - Else run a script (path relative to repo root)
-   - Run any `post` scripts if provided
-4) Continues past individual failures; reports via console.
+## Windows Flow
+### Prereqs
+- Run PowerShell **as Administrator**.
+- Allow script execution: `Set-ExecutionPolicy Bypass -Scope Process -Force`.
+- A reboot may be required if Chocolatey or other components request it.
 
-Run on Windows:
+### What runs (Windows)
+- `bootstrap.ps1` parses `manifest.yaml` and installs each `win` tool via Chocolatey (preferred), winget, or script, plus any `post` hooks.
+- Examples of installed software (per manifest at time of writing): git, VS Code, Docker Desktop, nerd fonts (DroidSansMono), Chrome, Zoom, uv, fnm, Cursor, Bitwarden, oh-my-posh, Ollama, Gemini CLI, Claude Code CLI, Copilot CLI, Chrome extensions (Session Buddy, Bitwarden, AdBlock), terminal appearance, fnm profile init, etc.
+- Windows font install and terminal appearance are separate steps: `nerd_fonts` installs the font; `terminal_appearance` and `configure-fnm-profile` scripts adjust Windows Terminal/PowerShell as defined.
+
+### Run
 ```powershell
-# In an elevated PowerShell
+Set-ExecutionPolicy Bypass -Scope Process -Force
 cd v2
 ./bootstrap.ps1
+# If prompted for reboot by Chocolatey/Windows, reboot and rerun ./bootstrap.ps1
 ```
 
 ## How macOS/Linux Runners Work (current state)
@@ -73,10 +75,10 @@ cd v2
 ./bootstrap.sh
 ```
 
-## Extending
-- Add tools / change versions: edit `manifest.yaml`.
-- Add OS-specific scripts: place under `scripts/<os>/...` and reference in the manifest.
-- Improve macOS/Linux runners: parse manifest and call brew/apt/scripts instead of delegating to Ansible.
+## Extending (add your own software)
+- Edit `manifest.yaml`: add a tool entry with per-OS mappings (`choco`/`winget`/`brew`/`apt`/`script`, optional `post`).
+- If using `script`, add the script under `scripts/<os>/...` and reference it in the manifest.
+- Keep Windows-only behaviors (terminal appearance, fnm profile) in dedicated scripts to avoid mixing concerns.
 
 ## Notes
 - Windows control plane is native PowerShell/winget (no Ansible on Windows).
