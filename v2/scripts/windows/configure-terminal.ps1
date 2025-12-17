@@ -72,3 +72,36 @@ if (Test-Path $settingsPath) {
 } else {
     Write-Warning "Windows Terminal settings.json not found at $settingsPath. Open Terminal → Settings → Open JSON and confirm it's installed."
 }
+
+# Initialize oh-my-posh for this session (if installed)
+if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) {
+    try {
+        oh-my-posh init pwsh | Invoke-Expression
+    } catch {
+        Write-Warning "Failed to initialize oh-my-posh in current session: $($_.Exception.Message)"
+    }
+
+    # Ensure profile exists and contains init line with Atomic theme
+    $profilePath = $PROFILE
+    $initLine = 'oh-my-posh init pwsh --config "$env:POSH_THEMES_PATH\atomic.omp.json" | Invoke-Expression'
+    if (-not (Test-Path $profilePath)) {
+        New-Item -ItemType File -Path $profilePath -Force | Out-Null
+    }
+    $profileContent = Get-Content $profilePath -Raw -ErrorAction SilentlyContinue
+    if ($profileContent -notmatch [regex]::Escape($initLine)) {
+        Add-Content -Path $profilePath -Value "`n$initLine"
+        Write-Host "Added oh-my-posh init line to $profilePath" -ForegroundColor DarkGray
+    } else {
+        Write-Host "oh-my-posh init line already present in $profilePath" -ForegroundColor DarkGray
+    }
+
+    # Reload profile
+    try {
+        . $profilePath
+        Write-Host "Reloaded PowerShell profile from $profilePath" -ForegroundColor DarkGray
+    } catch {
+        Write-Warning "Could not reload profile $profilePath: $($_.Exception.Message)"
+    }
+} else {
+    Write-Warning "oh-my-posh not found on PATH; skip shell prompt configuration."
+}
