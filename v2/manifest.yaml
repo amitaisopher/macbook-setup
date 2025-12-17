@@ -105,6 +105,11 @@ tools:
     linux:
       script: "scripts/linux/install-fnm.sh"
 
+  fnm_profile:
+    version: latest
+    win:
+      script: "scripts/windows/configure-fnm-profile.ps1"
+
   chrome_extensions:
     version: latest
     win:
