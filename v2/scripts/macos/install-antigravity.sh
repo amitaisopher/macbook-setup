@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-echo "TODO: Install AntiGravity on macOS (no official package mapping yet)." >&2
+echo "AntiGravity has no supported macOS installer defined. Please install manually per vendor instructions." >&2
