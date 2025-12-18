@@ -1,165 +1,121 @@
-tools:
-  git:
-    version: latest
-    win:
-      choco: "git"
-    mac:
-      brew: "git"
-    linux:
-      apt: "git"
+tasks:
+  - id: git
+    name: Git
+    type: package
+    deps: []
+    win: { choco: "git" }
+    mac: { brew: "git" }
+    linux: { apt: "git" }
 
-  vscode:
-    version: latest
-    win:
-      choco: "vscode"
-    mac:
-      brew_cask: "visual-studio-code"
-    linux:
-      apt: "code"
+  - id: vscode
+    name: VS Code
+    win: { choco: "vscode" }
+    mac: { brew_cask: "visual-studio-code" }
+    linux: { apt: "code" }
 
-  docker:
-    version: latest
-    win:
-      choco: "docker-desktop"
-    mac:
-      brew_cask: "docker"
+  - id: docker
+    name: Docker
+    win: { choco: "docker-desktop" }
+    mac: { brew_cask: "docker" }
     linux:
       apt: "docker.io"
       post:
         - "scripts/linux/post/docker-group.sh"
 
-  nerd_fonts:
-    version: latest
-    win:
-      script: "scripts/windows/install-nerd-fonts.ps1"
-    mac:
-      script: "scripts/macos/install-nerd-fonts.sh"
-    linux:
-      script: "scripts/linux/install-nerd-fonts.sh"
+  - id: nerd_fonts
+    name: Nerd Fonts (DroidSansMono)
+    win: { script: "scripts/windows/install-nerd-fonts.ps1" }
+    mac: { script: "scripts/macos/install-nerd-fonts.sh" }
+    linux: { script: "scripts/linux/install-nerd-fonts.sh" }
 
-  terminal_appearance:
-    version: latest
-    win:
-      script: "scripts/windows/configure-terminal.ps1"
+  - id: terminal_appearance
+    name: Terminal Appearance
+    deps: ["nerd_fonts"]
+    win: { script: "scripts/windows/configure-terminal.ps1" }
 
-  cursor:
-    version: latest
-    win:
-      choco: "cursoride"
-    mac:
-      brew_cask: "cursor"
-    linux:
-      script: "scripts/linux/install-cursor.sh"
+  - id: fnm_profile
+    name: FNM Profile Init
+    deps: ["fnm"]
+    win: { script: "scripts/windows/configure-fnm-profile.ps1" }
 
-  oh_my_posh:
-    version: latest
-    win:
-      choco: "oh-my-posh"
-    mac:
-      script: "scripts/macos/install-oh-my-posh.sh"
-    linux:
-      script: "scripts/linux/install-oh-my-posh.sh"
+  - id: cursor
+    name: Cursor
+    win: { choco: "cursoride" }
+    mac: { brew_cask: "cursor" }
+    linux: { script: "scripts/linux/install-cursor.sh" }
 
-  bitwarden:
-    version: latest
-    win:
-      choco: "bitwarden"
-    mac:
-      brew_cask: "bitwarden"
-    linux:
-      apt: "bitwarden"
+  - id: oh_my_posh
+    name: oh-my-posh
+    win: { choco: "oh-my-posh" }
+    mac: { script: "scripts/macos/install-oh-my-posh.sh" }
+    linux: { script: "scripts/linux/install-oh-my-posh.sh" }
 
-  google_chrome:
-    version: latest
-    win:
-      choco: "googlechrome"
-    mac:
-      brew_cask: "google-chrome"
-    linux:
-      script: "scripts/linux/install-chrome.sh"
+  - id: bitwarden
+    name: Bitwarden
+    win: { choco: "bitwarden" }
+    mac: { brew_cask: "bitwarden" }
+    linux: { apt: "bitwarden" }
 
-  zoom:
-    version: latest
-    win:
-      choco: "zoom"
-    mac:
-      brew_cask: "zoom"
-    linux:
-      script: "scripts/linux/install-zoom.sh"
+  - id: google_chrome
+    name: Google Chrome
+    win: { choco: "googlechrome" }
+    mac: { brew_cask: "google-chrome" }
+    linux: { script: "scripts/linux/install-chrome.sh" }
 
-  uv:
-    version: latest
-    win:
-      script: "scripts/windows/install-uv.ps1"
-    mac:
-      script: "scripts/macos/install-uv.sh"
-    linux:
-      script: "scripts/linux/install-uv.sh"
+  - id: chrome_extensions
+    name: Chrome Extensions (Session Buddy, Bitwarden, AdBlock)
+    deps: ["google_chrome"]
+    win: { script: "scripts/windows/install-chrome-extensions.ps1" }
+    mac: { script: "scripts/macos/install-chrome-extensions.sh" }
+    linux: { script: "scripts/linux/install-chrome-extensions.sh" }
 
-  fnm:
-    version: latest
-    win:
-      choco: "fnm"
-    mac:
-      script: "scripts/macos/install-fnm.sh"
-    linux:
-      script: "scripts/linux/install-fnm.sh"
+  - id: zoom
+    name: Zoom
+    win: { choco: "zoom" }
+    mac: { brew_cask: "zoom" }
+    linux: { script: "scripts/linux/install-zoom.sh" }
 
-  fnm_profile:
-    version: latest
-    win:
-      script: "scripts/windows/configure-fnm-profile.ps1"
+  - id: uv
+    name: uv (Python pkg manager)
+    win: { script: "scripts/windows/install-uv.ps1" }
+    mac: { script: "scripts/macos/install-uv.sh" }
+    linux: { script: "scripts/linux/install-uv.sh" }
 
-  chrome_extensions:
-    version: latest
-    win:
-      script: "scripts/windows/install-chrome-extensions.ps1"
-    mac:
-      script: "scripts/macos/install-chrome-extensions.sh"
-    linux:
-      script: "scripts/linux/install-chrome-extensions.sh"
+  - id: fnm
+    name: fnm (Fast Node Manager)
+    win: { choco: "fnm" }
+    mac: { script: "scripts/macos/install-fnm.sh" }
+    linux: { script: "scripts/linux/install-fnm.sh" }
 
-  gemini_cli:
-    version: latest
-    win:
-      script: "scripts/windows/install-gemini-cli.ps1"
-    mac:
-      script: "scripts/macos/install-gemini-cli.sh"
-    linux:
-      script: "scripts/linux/install-gemini-cli.sh"
+  - id: gemini_cli
+    name: Gemini CLI
+    deps: ["fnm"]
+    win: { script: "scripts/windows/install-gemini-cli.ps1" }
+    mac: { script: "scripts/macos/install-gemini-cli.sh" }
+    linux: { script: "scripts/linux/install-gemini-cli.sh" }
 
-  claude_code:
-    version: latest
-    win:
-      script: "scripts/windows/install-claude-code.ps1"
-    mac:
-      script: "scripts/macos/install-claude-code.sh"
-    linux:
-      script: "scripts/linux/install-claude-code.sh"
+  - id: claude_code
+    name: Claude Code CLI
+    deps: ["fnm"]
+    win: { script: "scripts/windows/install-claude-code.ps1" }
+    mac: { script: "scripts/macos/install-claude-code.sh" }
+    linux: { script: "scripts/linux/install-claude-code.sh" }
 
-  antigravity:
-    version: latest
-    win:
-      script: "scripts/windows/install-antigravity.ps1"
-    mac:
-      script: "scripts/macos/install-antigravity.sh"
-    linux:
-      script: "scripts/linux/install-antigravity.sh"
+  - id: copilot_cli
+    name: GitHub Copilot CLI
+    deps: ["fnm"]
+    win: { script: "scripts/windows/install-copilot-cli.ps1" }
+    mac: { script: "scripts/macos/install-copilot-cli.sh" }
+    linux: { script: "scripts/linux/install-copilot-cli.sh" }
 
-  copilot_cli:
-    version: latest
-    win:
-      script: "scripts/windows/install-copilot-cli.ps1"
-    mac:
-      script: "scripts/macos/install-copilot-cli.sh"
-    linux:
-      script: "scripts/linux/install-copilot-cli.sh"
+  - id: antigravity
+    name: AntiGravity
+    win: { script: "scripts/windows/install-antigravity.ps1" }
+    mac: { script: "scripts/macos/install-antigravity.sh" }
+    linux: { script: "scripts/linux/install-antigravity.sh" }
 
-  ollama:
-    version: latest
-    win:
-      winget: "Ollama.Ollama"
-    mac:
-      script: "scripts/macos/install-ollama.sh"
-    linux:
-      script: "scripts/linux/install-ollama.sh"
+  - id: ollama
+    name: Ollama
+    win: { winget: "Ollama.Ollama" }
+    mac: { script: "scripts/macos/install-ollama.sh" }
+    linux: { script: "scripts/linux/install-ollama.sh" }

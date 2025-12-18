@@ -1,0 +1,24 @@
+[project]
+name = "dev-bootstrap"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+  "typer[all]",
+  "pydantic>=2",
+  "pyyaml",
+  "loguru",
+  "rich",
+  "platformdirs",
+  "networkx",
+]
+
+[project.scripts]
+dev-bootstrap = "app.main:app"
+
+[tool.setuptools.packages.find]
+include = ["app"]
+exclude = ["tests*", "scripts*", "runners*"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"

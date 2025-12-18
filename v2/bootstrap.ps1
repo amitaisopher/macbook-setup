@@ -1,12 +1,10 @@
 [CmdletBinding()]
 Param(
+    [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$ExtraArgs
 )
 
 $ErrorActionPreference = 'Stop'
-
-# This entrypoint is for Windows hosts. It delegates to the v2 Windows runner
-# which installs tooling via winget/chocolatey based on manifest.yaml.
 
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $repoRoot
@@ -17,7 +15,4 @@ if (-not (Test-Path $windowsRunner)) {
     exit 1
 }
 
-$passArgs = @()
-if ($ExtraArgs) { $passArgs = $ExtraArgs }
-
-& $windowsRunner -RepoRoot $repoRoot -Manifest (Join-Path $repoRoot "manifest.yaml") @passArgs
+& $windowsRunner -AppArgs $ExtraArgs

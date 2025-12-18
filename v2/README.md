@@ -1,85 +1,99 @@
-# v2 Bootstrap (Manifest-Driven)
+# v2 — Manifest‑Driven, Typer‑Powered Bootstrap
 
-This v2 scaffold separates **what** to install from **how** to install it. A single manifest defines the toolset; thin OS runners translate the manifest into native installs.
+This version builds a single, OS‑agnostic installer that reads **one manifest** and executes it with native package managers. A Typer CLI gives consistent UX across Windows, macOS, and Linux.
 
-## Core Principles
-- **Single source of truth**: `manifest.yaml` lists all tools, versions, and per-OS mappings.
-- **OS-specific runners**: PowerShell on Windows, shell on macOS/Linux. They read the same manifest.
-- **Native installers**: winget/choco/scripts on Windows; (future) brew/apt/scripts on macOS/Linux.
-- **Minimal duplication**: Add/remove/change tools in one place (the manifest).
+## What’s Inside
+- **Single source of truth:** `manifest.yaml` lists every tool, its version, dependencies, per‑OS install method, and whether failure should abort.
+- **Typer CLI:** `app/main.py` (`python -m app.main install …`) with rich tables, dependency graph, dry‑run, and logging.
+- **Runners:** Thin launchers per OS that bootstrap Python/uv/venv, then delegate to the Typer app.
+  - Windows: `bootstrap.ps1` → `runners/windows.ps1`
+  - macOS/Linux: `bootstrap.sh` → `runners/{macos,linux}.sh`
+- **Scripts:** Any custom install/post steps live under `scripts/<os>/…`.
 
-## Layout
+## Quick Start
+```powershell
+# Windows (PowerShell as Administrator)
+Set-ExecutionPolicy Bypass -Scope Process -Force
+cd v2
+.\bootstrap.ps1 -- --help
 ```
-v2/
-  manifest.yaml          # tools + per-OS install mapping
-  bootstrap.ps1          # Windows entrypoint (delegates to runners/windows.ps1)
-  bootstrap.sh           # macOS/Linux entrypoint (delegates to runners/{macos,linux}.sh)
-  runners/
-    windows.ps1          # parses manifest, installs via winget/choco/scripts
-    macos.sh             # placeholder (currently delegates to root Ansible)
-    linux.sh             # placeholder (currently delegates to root Ansible)
-  scripts/
-    windows/
-      install-nerd-fonts.ps1
-    linux/
-      install-nerd-fonts.sh
-      post/docker-group.sh
+```bash
+# macOS / Linux
+cd v2
+./bootstrap.sh -- --help
 ```
 
-## Manifest (`manifest.yaml`)
-Example (truncated):
+Pass any Typer flags after `--` so the runner forwards them to the app.
+
+## Typer CLI (core flags)
+- `--manifest-file PATH` – use a different manifest (default: `manifest.yaml`)
+- `--dry-run` – print the plan without installing
+- `--log-file PATH` – write logs to a custom path (default: `logs/run-<ts>.log`)
+- `--show-dependency-graph` – render the dependency graph and exit
+
+## How the Runners Work
+### Windows runner (`bootstrap.ps1` → `runners/windows.ps1`)
+1. Ensure Chocolatey exists; install if missing.
+2. Ensure **uv** (Python manager) via Chocolatey.
+3. Create `.venv` with `uv venv` if missing.
+4. Install project deps with `uv pip install -e .` using `pyproject.toml`.
+5. Launch the Typer app with any CLI args.
+
+> If Chocolatey requests a reboot, reboot and rerun `.\bootstrap.ps1`.
+
+### macOS/Linux runner (`bootstrap.sh` → `runners/{macos,linux}.sh`)
+1. Ensure **uv** (`curl -LsSf https://astral.sh/uv/install.sh | sh`).
+2. Create `.venv` with `uv venv` if missing.
+3. Install deps with `uv pip install -e .`.
+4. Launch the Typer app with any CLI args.
+
+## Manifest Schema (excerpt)
 ```yaml
-tools:
-  git:
-    version: latest
-    win:   { winget: "Git.Git" }
+tasks:
+  - id: git
+    name: Git
+    type: package
+    deps: []
+    exit_on_failure: false
+    win:   { choco: "git" }
     mac:   { brew: "git" }
     linux: { apt: "git" }
 
-  nerd_fonts:
-    version: latest
+  - id: nerd_fonts
+    name: Nerd Fonts (DroidSansMono)
+    deps: []
     win:   { script: "scripts/windows/install-nerd-fonts.ps1" }
-    mac:   { brew: "font-hack-nerd-font" }
+    mac:   { script: "scripts/macos/install-nerd-fonts.sh" }
     linux: { script: "scripts/linux/install-nerd-fonts.sh" }
 ```
+Per‑OS keys: `choco`, `winget`, `brew`, `brew_cask`, `apt`, `script`, optional `post` (list of scripts).
 
-Keys per OS:
-- `winget`, `choco`, `brew`, `brew_cask`, `apt`, `script`
-- Optional `post`: array of scripts to run after install (e.g., docker group).
+## Current Tooling (from `manifest.yaml`)
+Git, VS Code, Docker, Nerd Fonts (DroidSansMono), Terminal appearance (Windows), Cursor, oh‑my‑posh, Bitwarden, Google Chrome, Chrome extensions (Session Buddy, Bitwarden, AdBlock), Zoom, uv, fnm, Gemini CLI, Claude Code CLI, GitHub Copilot CLI, AntiGravity (placeholder), Ollama, fnm profile init (Windows), Windows Terminal configuration.
 
-## Windows Flow
-### Prereqs
-- Run PowerShell **as Administrator**.
-- Allow script execution: `Set-ExecutionPolicy Bypass -Scope Process -Force`.
-- A reboot may be required if Chocolatey or other components request it.
+## Output & Logging
+- **Analysis table:** manifest path, OS, total tasks, independent vs dependent counts, log file path.
+- **Execution table:** each task shows status transitions with elapsed time; honors `exit_on_failure` by skipping the remainder.
+- **Summary:** totals for success/failed/skipped plus wall time.
+- **Logs:** everything printed plus stack traces is written to the chosen log file (`logs/` by default) via loguru.
 
-### What runs (Windows)
-- `bootstrap.ps1` parses `manifest.yaml` and installs each `win` tool via Chocolatey (preferred), winget, or script, plus any `post` hooks.
-- Examples of installed software (per manifest at time of writing): git, VS Code, Docker Desktop, nerd fonts (DroidSansMono), Chrome, Zoom, uv, fnm, Cursor, Bitwarden, oh-my-posh, Ollama, Gemini CLI, Claude Code CLI, Copilot CLI, Chrome extensions (Session Buddy, Bitwarden, AdBlock), terminal appearance, fnm profile init, etc.
-- Windows font install and terminal appearance are separate steps: `nerd_fonts` installs the font; `terminal_appearance` and `configure-fnm-profile` scripts adjust Windows Terminal/PowerShell as defined.
+## Extending the Tool
+1. **Add a task** to `manifest.yaml` with `id`, `name`, optional `deps`, and per‑OS install keys.
+2. **Add scripts** under `scripts/<os>/...` if using `script` or `post`.
+3. Run with `--show-dependency-graph` to verify ordering.
+4. Use `--dry-run` to validate wiring before installing.
 
-### Run
-```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force
-cd v2
-./bootstrap.ps1
-# If prompted for reboot by Chocolatey/Windows, reboot and rerun ./bootstrap.ps1
-```
+## Windows Notes
+- Run PowerShell as Administrator and set execution policy per session:  
+  `Set-ExecutionPolicy Bypass -Scope Process -Force`
+- If WSL/virtualization are needed for other workflows, enable them separately; this tool runs natively on Windows with Chocolatey/winget.
+- After font/theme/profile steps, restart Windows Terminal to apply settings.
 
-## How macOS/Linux Runners Work (current state)
-The macOS/Linux runners are placeholders that delegate to the existing root `./bootstrap.sh` (Ansible-based). Future work: make them read `manifest.yaml` and install via brew/apt/scripts directly.
+## macOS/Linux Notes
+- The runner installs uv locally under `~/.local/bin` if absent; ensure it’s on `PATH` in custom shells.
+- All installs are driven by the manifest; apt/brew/script actions are taken from the per‑OS mapping.
 
-Run on macOS/Linux (current):
-```bash
-cd v2
-./bootstrap.sh
-```
-
-## Extending (add your own software)
-- Edit `manifest.yaml`: add a tool entry with per-OS mappings (`choco`/`winget`/`brew`/`apt`/`script`, optional `post`).
-- If using `script`, add the script under `scripts/<os>/...` and reference it in the manifest.
-- Keep Windows-only behaviors (terminal appearance, fnm profile) in dedicated scripts to avoid mixing concerns.
-
-## Notes
-- Windows control plane is native PowerShell/winget (no Ansible on Windows).
-- Ansible can still be used on macOS/Linux; the manifest remains the shared source of truth.
+## Troubleshooting
+- Add `--log-file /tmp/dev-bootstrap.log` for a fixed log path.
+- Use `--dry-run` and `--show-dependency-graph` to check wiring.
+- If installs fail due to missing package managers, add a preceding task to install them or supply a `script` installer.
